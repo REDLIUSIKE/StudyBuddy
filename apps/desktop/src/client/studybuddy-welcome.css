@@ -1,0 +1,17 @@
+#root { background: var(--dsw-alias-button-elevated-fill); }
+.studybuddy-login { flex: 1; min-height: 0; display: grid; grid-template-rows: 72px minmax(0, 1fr) 112px; justify-items: center; padding: 24px 40px 48px; color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); text-align: center; }
+.studybuddy-login-brand { width: min(320px, 100%); height: 72px; object-fit: contain; object-position: center; }
+.studybuddy-login-content { align-self: center; max-width: 360px; }
+.studybuddy-login h1 { margin: 0 0 16px; font-size: 28px; font-weight: 600; letter-spacing: -.5px; }
+.studybuddy-login p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 1.8; }
+.studybuddy-login .studybuddy-login-status { margin-top: 18px; min-height: 25px; }
+.studybuddy-login-actions { width: min(320px, 100%); display: flex; flex-direction: column; gap: 12px; align-self: end; }
+.studybuddy-login button { width: 100%; height: 48px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; app-region: no-drag; }
+.studybuddy-login button.primary { border: 0; background: var(--dsw-alias-label-primary); color: var(--dsw-alias-label-primary-inverted); }
+.studybuddy-login button.primary:hover { background: var(--dsw-alias-button-primary-hover); }
+.studybuddy-login button.secondary { border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-button-elevated-fill); color: var(--dsw-alias-label-primary); }
+.studybuddy-login button.secondary:hover { background: var(--dsw-alias-button-floating-hover); }
+.studybuddy-login button:disabled { cursor: default; opacity: .6; }
+.studybuddy-login button:focus-visible { outline: 2px solid var(--dsw-alias-label-primary); outline-offset: 3px; }
+.studybuddy-login .studybuddy-login-footnote { font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+@media (max-height: 580px) { .studybuddy-login { padding-bottom: 24px; } .studybuddy-login h1 { font-size: 24px; } }

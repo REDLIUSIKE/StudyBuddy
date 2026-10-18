@@ -1,0 +1,249 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renders the owner-local available state with safe request correlation 1`] = `
+"<section class="_section_3631e9" aria-label="帮助与反馈">
+<header class="_header_3631e9">
+<div>
+<h2>遇到问题，我们来帮你</h2>
+<p>说说遇到了什么，或上传日志让我们排查。</p>
+</div>
+<button type="button" class="_button_4d2f85 _outline_4d2f85 _sm_4d2f85">检查更新</button>
+</header>
+<div class="_tabs_3631e9" role="group" aria-label="帮助与反馈">
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">上传日志</button>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _md_4d2f85">提交问题</button>
+</div>
+<div class="_range_3631e9">
+<span>日志范围</span>
+<select aria-label="日志范围">
+<option value="last_24_hours">最近 24 小时</option>
+<option value="last_3_days">最近 3 天</option>
+<option value="all_30_days">最近 30 天</option>
+</select>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">预览日志</button>
+</div>
+<div class="_notice_3631e9">
+<p>本次日志包会包含当前账号已配置的完整 API Key，用于排查连接问题。请确认后再提交。</p>
+<small>不会自动上传整段聊天、登录令牌或 Cookie。截图由你选择。</small>
+</div>
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">确认上传日志</button>
+<p role="status">日志上传完成</p>
+<p class="_muted_3631e9">操作编号 · <code>123e4567-e89b-42d3-a456-426614174002</code>
+</p>
+<div class="_reference_3631e9">
+<code>LOG-8K2P7M4Q</code>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">复制编号</button>
+</div>
+<footer class="_customerService_3631e9" aria-label="联系客服">
+<div>客服 QQ：<span class="_customerServiceQq_3631e9">1072662622</span>
+</div>
+<p class="_muted_3631e9">在线时间：09:00–18:00</p>
+</footer>
+</section>"
+`;
+
+exports[`renders the owner-local error state with safe request correlation 1`] = `
+"<section class="_section_3631e9" aria-label="帮助与反馈">
+<header class="_header_3631e9">
+<div>
+<h2>遇到问题，我们来帮你</h2>
+<p>说说遇到了什么，或上传日志让我们排查。</p>
+</div>
+<button type="button" class="_button_4d2f85 _outline_4d2f85 _sm_4d2f85">检查更新</button>
+</header>
+<div class="_tabs_3631e9" role="group" aria-label="帮助与反馈">
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">上传日志</button>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _md_4d2f85">提交问题</button>
+</div>
+<div class="_range_3631e9">
+<span>日志范围</span>
+<select aria-label="日志范围">
+<option value="last_24_hours">最近 24 小时</option>
+<option value="last_3_days">最近 3 天</option>
+<option value="all_30_days">最近 30 天</option>
+</select>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">预览日志</button>
+</div>
+<div class="_notice_3631e9">
+<p>本次日志包会包含当前账号已配置的完整 API Key，用于排查连接问题。请确认后再提交。</p>
+<small>不会自动上传整段聊天、登录令牌或 Cookie。截图由你选择。</small>
+</div>
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">确认上传日志</button>
+<p role="alert">日志未被接受，请保留错误编号联系我们。 <code>LOG_UPLOAD_REJECTED</code>
+</p>
+<p class="_muted_3631e9">未完成步骤 · 上传日志和附件</p>
+<p class="_muted_3631e9">操作编号 · <code>123e4567-e89b-42d3-a456-426614174002</code>
+</p>
+<footer class="_customerService_3631e9" aria-label="联系客服">
+<div>客服 QQ：<span class="_customerServiceQq_3631e9">1072662622</span>
+</div>
+<p class="_muted_3631e9">在线时间：09:00–18:00</p>
+</footer>
+</section>"
+`;
+
+exports[`renders the owner-local idle state with safe request correlation 1`] = `
+"<section class="_section_3631e9" aria-label="帮助与反馈">
+<header class="_header_3631e9">
+<div>
+<h2>遇到问题，我们来帮你</h2>
+<p>说说遇到了什么，或上传日志让我们排查。</p>
+</div>
+<button type="button" class="_button_4d2f85 _outline_4d2f85 _sm_4d2f85">检查更新</button>
+</header>
+<div class="_tabs_3631e9" role="group" aria-label="帮助与反馈">
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">上传日志</button>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _md_4d2f85">提交问题</button>
+</div>
+<div class="_range_3631e9">
+<span>日志范围</span>
+<select aria-label="日志范围">
+<option value="last_24_hours">最近 24 小时</option>
+<option value="last_3_days">最近 3 天</option>
+<option value="all_30_days">最近 30 天</option>
+</select>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">预览日志</button>
+</div>
+<div class="_notice_3631e9">
+<p>本次日志包会包含当前账号已配置的完整 API Key，用于排查连接问题。请确认后再提交。</p>
+<small>不会自动上传整段聊天、登录令牌或 Cookie。截图由你选择。</small>
+</div>
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">确认上传日志</button>
+<footer class="_customerService_3631e9" aria-label="联系客服">
+<div>客服 QQ：<span class="_customerServiceQq_3631e9">1072662622</span>
+</div>
+<p class="_muted_3631e9">在线时间：09:00–18:00</p>
+</footer>
+</section>"
+`;
+
+exports[`renders the owner-local preview state with safe request correlation 1`] = `
+"<section class="_section_3631e9" aria-label="帮助与反馈">
+<header class="_header_3631e9">
+<div>
+<h2>遇到问题，我们来帮你</h2>
+<p>说说遇到了什么，或上传日志让我们排查。</p>
+</div>
+<button type="button" class="_button_4d2f85 _outline_4d2f85 _sm_4d2f85">检查更新</button>
+</header>
+<div class="_tabs_3631e9" role="group" aria-label="帮助与反馈">
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">上传日志</button>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _md_4d2f85">提交问题</button>
+</div>
+<div class="_range_3631e9">
+<span>日志范围</span>
+<select aria-label="日志范围">
+<option value="last_24_hours">最近 24 小时</option>
+<option value="last_3_days">最近 3 天</option>
+<option value="all_30_days">最近 30 天</option>
+</select>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">预览日志</button>
+</div>
+<div class="_preview_3631e9">
+<p>2 个文件 · 3 条记录 · 1 KB</p>
+<details>
+<summary>当前采集来源</summary>
+<div class="_sources_3631e9">
+<span>客户端 · 已采集</span>
+<span>对话服务 · 暂无诊断</span>
+<span>页面交互 · 暂无诊断</span>
+<span>工具中心 · 暂无诊断</span>
+<span>排行榜 · 暂无诊断</span>
+<span>Skill 中心 · 暂无诊断</span>
+<span>我的 AI · 暂无诊断</span>
+<span>实验室 · 暂无诊断</span>
+<span>创作功能 · 暂无诊断</span>
+</div>
+</details>
+</div>
+<div class="_notice_3631e9">
+<p>本次日志包会包含当前账号已配置的完整 API Key，用于排查连接问题。请确认后再提交。</p>
+<small>不会自动上传整段聊天、登录令牌或 Cookie。截图由你选择。</small>
+</div>
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">确认上传日志</button>
+<footer class="_customerService_3631e9" aria-label="联系客服">
+<div>客服 QQ：<span class="_customerServiceQq_3631e9">1072662622</span>
+</div>
+<p class="_muted_3631e9">在线时间：09:00–18:00</p>
+</footer>
+</section>"
+`;
+
+exports[`renders the owner-local running state with safe request correlation 1`] = `
+"<section class="_section_3631e9" aria-label="帮助与反馈">
+<header class="_header_3631e9">
+<div>
+<h2>遇到问题，我们来帮你</h2>
+<p>说说遇到了什么，或上传日志让我们排查。</p>
+</div>
+<button type="button" class="_button_4d2f85 _outline_4d2f85 _sm_4d2f85">检查更新</button>
+</header>
+<div class="_tabs_3631e9" role="group" aria-label="帮助与反馈">
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85" disabled="">上传日志</button>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _md_4d2f85" disabled="">提交问题</button>
+</div>
+<div class="_range_3631e9">
+<span>日志范围</span>
+<select disabled="" aria-label="日志范围">
+<option value="last_24_hours">最近 24 小时</option>
+<option value="last_3_days">最近 3 天</option>
+<option value="all_30_days">最近 30 天</option>
+</select>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85" disabled="">预览日志</button>
+</div>
+<div class="_notice_3631e9">
+<p>本次日志包会包含当前账号已配置的完整 API Key，用于排查连接问题。请确认后再提交。</p>
+<small>不会自动上传整段聊天、登录令牌或 Cookie。截图由你选择。</small>
+</div>
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85" disabled="">正在上传日志和附件…</button>
+<p class="_muted_3631e9">操作编号 · <code>123e4567-e89b-42d3-a456-426614174002</code>
+</p>
+<footer class="_customerService_3631e9" aria-label="联系客服">
+<div>客服 QQ：<span class="_customerServiceQq_3631e9">1072662622</span>
+</div>
+<p class="_muted_3631e9">在线时间：09:00–18:00</p>
+</footer>
+</section>"
+`;
+
+exports[`renders the owner-local unconfirmed state with safe request correlation 1`] = `
+"<section class="_section_3631e9" aria-label="帮助与反馈">
+<header class="_header_3631e9">
+<div>
+<h2>遇到问题，我们来帮你</h2>
+<p>说说遇到了什么，或上传日志让我们排查。</p>
+</div>
+<button type="button" class="_button_4d2f85 _outline_4d2f85 _sm_4d2f85">检查更新</button>
+</header>
+<div class="_tabs_3631e9" role="group" aria-label="帮助与反馈">
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85">上传日志</button>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _md_4d2f85">提交问题</button>
+</div>
+<div class="_range_3631e9">
+<span>日志范围</span>
+<select aria-label="日志范围">
+<option value="last_24_hours">最近 24 小时</option>
+<option value="last_3_days">最近 3 天</option>
+<option value="all_30_days">最近 30 天</option>
+</select>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">预览日志</button>
+</div>
+<div class="_notice_3631e9">
+<p>本次日志包会包含当前账号已配置的完整 API Key，用于排查连接问题。请确认后再提交。</p>
+<small>不会自动上传整段聊天、登录令牌或 Cookie。截图由你选择。</small>
+</div>
+<button type="button" class="_button_4d2f85 _primary_4d2f85 _md_4d2f85" disabled="">确认上传日志</button>
+<p role="alert">问题提交结果尚未确认，请保留日志编号查询，不要重复提交。</p>
+<p class="_muted_3631e9">操作编号 · <code>123e4567-e89b-42d3-a456-426614174002</code>
+</p>
+<div class="_reference_3631e9">
+<code>LOG-8K2P7M4Q</code>
+<button type="button" class="_button_4d2f85 _ghost_4d2f85 _sm_4d2f85">复制编号</button>
+</div>
+<footer class="_customerService_3631e9" aria-label="联系客服">
+<div>客服 QQ：<span class="_customerServiceQq_3631e9">1072662622</span>
+</div>
+<p class="_muted_3631e9">在线时间：09:00–18:00</p>
+</footer>
+</section>"
+`;

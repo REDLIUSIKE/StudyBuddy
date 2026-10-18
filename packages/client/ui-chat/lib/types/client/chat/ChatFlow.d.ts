@@ -1,0 +1,4 @@
+import type { ChatFlowSlotProps } from '../contract/slots.ts';
+/** Render the flow without adding a DOM parent or changing keyed row positions. */
+export declare const ChatFlow: import("react").MemoExoticComponent<({ entries, pendingInputs, lastInputTurn, deferCollapse, useSession, useChat, useChatNode, useChatNodeBottom, useChatNodeProcess, useChatGroup, usePresentation, useStore, actions, renderSlot, t, useGroupAction, useGroupHeaderAction, cwd, openFile, openSkill, inspectCall, forkAt, loadImage, fileMentions, }: ChatFlowSlotProps) => import("react").JSX.Element[]>;
+//# sourceMappingURL=ChatFlow.d.ts.map

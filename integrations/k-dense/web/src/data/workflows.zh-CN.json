@@ -1,0 +1,1306 @@
+{
+  "review-paper": {
+    "name": "审阅论文",
+    "description": "评估研究方法、统计严谨性与局限性，并提供建设性反馈"
+  },
+  "write-paper": {
+    "name": "撰写论文",
+    "description": "根据提供的数据或结果起草完整论文"
+  },
+  "write-review-article": {
+    "name": "撰写综述论文",
+    "description": "综合梳理文献，分析研究空白与未来方向"
+  },
+  "edit-manuscript": {
+    "name": "编辑与改写论文",
+    "description": "改善论文的表达、语法、行文衔接和科学写作风格"
+  },
+  "write-rebuttal": {
+    "name": "撰写审稿回复",
+    "description": "逐条回应审稿意见"
+  },
+  "format-journal": {
+    "name": "按期刊要求排版",
+    "description": "根据目标期刊的投稿指南调整论文格式"
+  },
+  "write-abstract": {
+    "name": "撰写摘要",
+    "description": "起草或完善论文的结构式摘要"
+  },
+  "write-cover-letter": {
+    "name": "撰写投稿附信",
+    "description": "起草提交给期刊的投稿附信"
+  },
+  "write-methods": {
+    "name": "撰写方法部分",
+    "description": "根据实验方案或数据撰写详细的研究方法"
+  },
+  "write-results": {
+    "name": "撰写结果部分",
+    "description": "根据数据和图表撰写研究结果"
+  },
+  "write-discussion": {
+    "name": "撰写讨论部分",
+    "description": "结合相关文献解释研究结果"
+  },
+  "write-introduction": {
+    "name": "撰写引言",
+    "description": "阐述研究背景与研究依据"
+  },
+  "translate-manuscript": {
+    "name": "翻译论文",
+    "description": "在不同语言之间翻译科学论文"
+  },
+  "write-supplementary": {
+    "name": "编写补充材料",
+    "description": "准备补充方法、图表和数据表"
+  },
+  "reference-check": {
+    "name": "检查与修正参考文献",
+    "description": "核验参考文献、修正格式并补查缺失引用"
+  },
+  "graphical-abstract": {
+    "name": "制作图文摘要",
+    "description": "以图形概括论文的关键发现"
+  },
+  "publication-figure": {
+    "name": "制作发表用图",
+    "description": "根据数据生成符合发表要求的图表与可视化"
+  },
+  "slide-deck": {
+    "name": "制作学术演示文稿",
+    "description": "为学术报告或组会制作演示幻灯片"
+  },
+  "conference-poster": {
+    "name": "制作会议海报",
+    "description": "根据论文或结果设计学术海报"
+  },
+  "infographic": {
+    "name": "制作信息图",
+    "description": "为更广泛的读者制作图解说明"
+  },
+  "create-schematic": {
+    "name": "绘制科学示意图",
+    "description": "绘制过程的机制图或概念图"
+  },
+  "create-flowchart": {
+    "name": "绘制流程图",
+    "description": "绘制实验或分析工作流程"
+  },
+  "create-timeline": {
+    "name": "制作研究时间线",
+    "description": "以时间线展示项目里程碑与交付成果"
+  },
+  "create-heatmap": {
+    "name": "绘制热图",
+    "description": "将矩阵数据可视化为热图"
+  },
+  "create-network-diagram": {
+    "name": "绘制网络图",
+    "description": "可视化网络结构或相互作用关系"
+  },
+  "create-geographic-map": {
+    "name": "绘制地理地图",
+    "description": "可视化地理或空间数据"
+  },
+  "create-dashboard": {
+    "name": "制作交互式数据看板",
+    "description": "构建包含多个交互面板的数据看板"
+  },
+  "explore-data": {
+    "name": "探索数据",
+    "description": "开展探索性数据分析，检查分布、相关性和缺失值并绘图"
+  },
+  "statistical-analysis": {
+    "name": "统计分析",
+    "description": "选择合适的检验，计算 p 值和效应量并检查统计假设"
+  },
+  "reproduce-analysis": {
+    "name": "复现分析",
+    "description": "使用提供的数据重跑论文方法并核验结果"
+  },
+  "clean-data": {
+    "name": "清洗与转换数据",
+    "description": "将杂乱的数据集整理为可分析的格式"
+  },
+  "predictive-model": {
+    "name": "构建预测模型",
+    "description": "使用提供的数据训练和评估机器学习模型"
+  },
+  "time-series-analysis": {
+    "name": "时间序列分析",
+    "description": "分解趋势、进行预测并检测异常"
+  },
+  "survival-analysis": {
+    "name": "生存分析",
+    "description": "绘制 Kaplan-Meier 曲线，进行 Cox 回归和风险建模"
+  },
+  "meta-analysis": {
+    "name": "荟萃分析",
+    "description": "合并多个研究的效应量并评估异质性"
+  },
+  "power-analysis": {
+    "name": "统计功效分析",
+    "description": "计算样本量并绘制功效曲线"
+  },
+  "bayesian-analysis": {
+    "name": "贝叶斯分析",
+    "description": "通过后验分布与可信区间开展贝叶斯推断"
+  },
+  "dimensionality-reduction": {
+    "name": "降维分析",
+    "description": "使用 PCA、t-SNE 和 UMAP 可视化高维数据"
+  },
+  "clustering-analysis": {
+    "name": "聚类分析",
+    "description": "使用多种算法进行无监督聚类"
+  },
+  "regression-analysis": {
+    "name": "回归分析",
+    "description": "建立线性、逻辑或混合效应回归模型"
+  },
+  "anova-analysis": {
+    "name": "方差分析与组间比较",
+    "description": "开展单因素、双因素或重复测量方差分析"
+  },
+  "correlation-network": {
+    "name": "相关性网络",
+    "description": "构建并可视化基于相关性的网络"
+  },
+  "literature-search": {
+    "name": "文献检索",
+    "description": "查找并总结与主题相关的论文"
+  },
+  "summarize-paper": {
+    "name": "总结论文",
+    "description": "结构化概括研究目的、方法、发现与意义"
+  },
+  "compare-papers": {
+    "name": "比较论文",
+    "description": "对多篇论文进行并列分析"
+  },
+  "research-landscape": {
+    "name": "绘制研究全景图",
+    "description": "展示领域的关键主题、研究团队与发展趋势"
+  },
+  "systematic-review": {
+    "name": "制定系统综述方案",
+    "description": "采用 PRISMA 方法设计系统综述"
+  },
+  "citation-analysis": {
+    "name": "引文分析",
+    "description": "分析一组研究的引用模式与影响力"
+  },
+  "find-datasets": {
+    "name": "查找公共数据集",
+    "description": "为研究问题寻找相关公共数据集"
+  },
+  "track-research-trends": {
+    "name": "追踪研究趋势",
+    "description": "分析领域的发表趋势与新兴主题"
+  },
+  "find-preprints": {
+    "name": "查找近期预印本",
+    "description": "检索 bioRxiv、arXiv 等预印本平台"
+  },
+  "patent-landscape": {
+    "name": "专利全景分析",
+    "description": "分析技术领域的专利申请与知识产权格局"
+  },
+  "methods-comparison": {
+    "name": "比较研究方法",
+    "description": "系统比较用于某项任务的不同方法"
+  },
+  "specific-aim": {
+    "name": "撰写具体研究目标",
+    "description": "起草基金申请的具体目标、意义与研究思路"
+  },
+  "research-plan": {
+    "name": "撰写研究计划",
+    "description": "阐述假设、方法、时间安排与预期结果"
+  },
+  "budget-justification": {
+    "name": "撰写预算说明",
+    "description": "起草基金申请的预算依据"
+  },
+  "write-biosketch": {
+    "name": "撰写研究者简历",
+    "description": "按 NIH 或 NSF 风格编写项目负责人的学术简历"
+  },
+  "write-significance": {
+    "name": "撰写研究意义",
+    "description": "说明拟开展研究的重要性与影响"
+  },
+  "write-innovation": {
+    "name": "撰写创新性说明",
+    "description": "阐明拟采用研究方法的创新之处"
+  },
+  "write-approach": {
+    "name": "撰写研究策略与方案",
+    "description": "为基金申请编写详细实验计划"
+  },
+  "project-timeline": {
+    "name": "制定项目时间表",
+    "description": "为基金项目制作甘特图与里程碑计划"
+  },
+  "data-management-plan": {
+    "name": "撰写数据管理计划",
+    "description": "编写符合 NIH、NSF 等资助方要求的数据管理计划"
+  },
+  "broader-impacts": {
+    "name": "撰写广泛影响说明",
+    "description": "起草 NSF 广泛影响说明或 NIH 成果传播计划"
+  },
+  "risk-mitigation": {
+    "name": "制定风险应对计划",
+    "description": "识别项目风险并提出替代策略"
+  },
+  "facilities-equipment": {
+    "name": "编写设施与设备说明",
+    "description": "介绍可用资源与基础设施"
+  },
+  "plain-language-summary": {
+    "name": "撰写通俗摘要",
+    "description": "面向非专业读者或媒体改写研究内容"
+  },
+  "blog-post": {
+    "name": "撰写科普博文",
+    "description": "根据论文或结果撰写生动的科学博客文章"
+  },
+  "draft-protocol": {
+    "name": "起草操作方案",
+    "description": "编写逐步实验或计算操作规程"
+  },
+  "write-press-release": {
+    "name": "撰写新闻稿",
+    "description": "为机构起草研究发现的新闻稿"
+  },
+  "social-media-post": {
+    "name": "撰写社交媒体内容",
+    "description": "用 Twitter 或 LinkedIn 系列帖概括研究"
+  },
+  "podcast-script": {
+    "name": "撰写播客脚本",
+    "description": "编写科学播客节目的脚本"
+  },
+  "policy-brief": {
+    "name": "撰写政策简报",
+    "description": "为决策者编写基于研究的政策简报"
+  },
+  "patient-education": {
+    "name": "编写患者教育材料",
+    "description": "制作患者易于理解的健康信息文档"
+  },
+  "write-textbook-chapter": {
+    "name": "撰写教材章节",
+    "description": "围绕主题编写完整的教学章节"
+  },
+  "elevator-pitch": {
+    "name": "撰写简短项目介绍",
+    "description": "为研究项目编写 30 秒介绍"
+  },
+  "rnaseq-deseq2": {
+    "name": "整体 RNA 测序分析",
+    "description": "根据 RNA 测序计数数据开展差异表达分析"
+  },
+  "single-cell-rnaseq": {
+    "name": "单细胞 RNA 测序流程",
+    "description": "从原始计数到细胞类型完成单细胞 RNA 测序分析"
+  },
+  "variant-calling": {
+    "name": "变异检测与注释",
+    "description": "识别并注释测序数据中的遗传变异"
+  },
+  "gwas-analysis": {
+    "name": "全基因组关联分析",
+    "description": "构建全基因组关联研究分析流程"
+  },
+  "chipseq-analysis": {
+    "name": "ChIP-seq 峰检测",
+    "description": "从 ChIP-seq 数据中识别转录因子结合位点"
+  },
+  "atacseq-analysis": {
+    "name": "ATAC-seq 染色质可及性分析",
+    "description": "根据 ATAC-seq 数据定位开放染色质区域"
+  },
+  "methylation-analysis": {
+    "name": "DNA 甲基化分析",
+    "description": "分析甲基化芯片或亚硫酸氢盐测序数据"
+  },
+  "gene-set-enrichment": {
+    "name": "基因集富集分析",
+    "description": "根据基因列表或排序数据开展 GSEA 与通路富集分析"
+  },
+  "gene-regulatory-network": {
+    "name": "基因调控网络分析",
+    "description": "推断并可视化转录调控网络"
+  },
+  "genome-annotation": {
+    "name": "基因组注释",
+    "description": "注释基因组组装中的基因、重复序列与其他特征"
+  },
+  "comparative-genomics": {
+    "name": "比较基因组学分析",
+    "description": "比较不同物种的基因组以了解进化关系"
+  },
+  "metagenomics-analysis": {
+    "name": "宏基因组分析",
+    "description": "分析微生物群落的分类组成与功能特征"
+  },
+  "rna-velocity": {
+    "name": "RNA 速率分析",
+    "description": "根据剪接与未剪接 RNA 推断细胞状态动态"
+  },
+  "spatial-transcriptomics": {
+    "name": "空间转录组分析",
+    "description": "分析具有空间定位信息的基因表达数据"
+  },
+  "variant-annotation": {
+    "name": "变异注释与解读",
+    "description": "注释遗传变异并按临床相关性确定优先级"
+  },
+  "phylogenetic-analysis": {
+    "name": "系统发育分析",
+    "description": "根据序列构建并可视化系统发育树"
+  },
+  "gene-expression-atlas": {
+    "name": "基因表达图谱",
+    "description": "查询并可视化不同组织与条件下的基因表达"
+  },
+  "protein-structure-analysis": {
+    "name": "蛋白质结构分析",
+    "description": "获取并分析 PDB 结构或 AlphaFold 预测结果"
+  },
+  "molecular-docking": {
+    "name": "分子对接",
+    "description": "将配体对接至蛋白质靶标并分析结合情况"
+  },
+  "mass-spec-proteomics": {
+    "name": "质谱蛋白质组分析",
+    "description": "分析 LC-MS/MS 蛋白质组数据"
+  },
+  "protein-protein-interaction": {
+    "name": "蛋白质相互作用网络",
+    "description": "构建并分析蛋白质相互作用网络"
+  },
+  "alphafold-prediction": {
+    "name": "AlphaFold 结构预测",
+    "description": "使用 AlphaFold 获取或预测蛋白质三维结构"
+  },
+  "protein-engineering": {
+    "name": "蛋白质工程设计",
+    "description": "设计功能得到改善的蛋白质变体"
+  },
+  "binding-site-analysis": {
+    "name": "结合位点分析",
+    "description": "表征蛋白质中的配体结合口袋"
+  },
+  "molecular-dynamics-sim": {
+    "name": "分子动力学模拟",
+    "description": "搭建并分析生物分子动力学模拟"
+  },
+  "homology-modeling": {
+    "name": "同源建模",
+    "description": "根据同源模板结构构建三维模型"
+  },
+  "protein-function-prediction": {
+    "name": "蛋白质功能预测",
+    "description": "根据序列与结构预测蛋白质功能"
+  },
+  "post-translational-mods": {
+    "name": "翻译后修饰分析",
+    "description": "预测并分析蛋白质翻译后修饰"
+  },
+  "structural-alignment": {
+    "name": "结构比对",
+    "description": "比对和比较蛋白质三维结构"
+  },
+  "epitope-prediction": {
+    "name": "抗原表位预测",
+    "description": "为疫苗设计预测 B 细胞与 T 细胞表位"
+  },
+  "scrnaseq-clustering": {
+    "name": "单细胞 RNA 测序聚类",
+    "description": "识别并表征单细胞 RNA 测序数据中的细胞簇"
+  },
+  "cell-type-annotation": {
+    "name": "细胞类型注释",
+    "description": "利用参考图谱自动标注细胞类型"
+  },
+  "trajectory-analysis": {
+    "name": "轨迹与拟时序分析",
+    "description": "推断细胞发育轨迹及其排列顺序"
+  },
+  "flow-cytometry-analysis": {
+    "name": "流式细胞术分析",
+    "description": "对流式细胞数据进行设门、聚类和定量"
+  },
+  "cell-cell-communication": {
+    "name": "细胞间通讯分析",
+    "description": "根据单细胞 RNA 测序推断细胞间信号传递"
+  },
+  "multi-omics-integration": {
+    "name": "多组学整合",
+    "description": "整合转录组、蛋白质组及其他组学数据"
+  },
+  "cell-cycle-analysis": {
+    "name": "细胞周期分析",
+    "description": "评估细胞周期阶段并回归去除细胞周期效应"
+  },
+  "perturbation-analysis": {
+    "name": "扰动与 CRISPR 筛选分析",
+    "description": "分析 Perturb-seq 或 CRISPR 筛选数据"
+  },
+  "immune-cell-profiling": {
+    "name": "免疫细胞特征分析",
+    "description": "深入表征免疫细胞群体"
+  },
+  "lineage-tracing": {
+    "name": "细胞谱系追踪分析",
+    "description": "根据条形码数据重建细胞谱系树"
+  },
+  "spatial-cell-analysis": {
+    "name": "细胞空间分析",
+    "description": "分析细胞的空间组织与邻域关系"
+  },
+  "molecular-property-prediction": {
+    "name": "分子性质预测",
+    "description": "预测分子的理化性质与生物学性质"
+  },
+  "reaction-prediction": {
+    "name": "化学反应预测",
+    "description": "预测化学反应的产物、产率或反应条件"
+  },
+  "retrosynthesis-planning": {
+    "name": "逆合成规划",
+    "description": "规划目标分子的合成路线"
+  },
+  "conformer-generation": {
+    "name": "构象生成与分析",
+    "description": "生成并分析分子的三维构象"
+  },
+  "qsar-modeling": {
+    "name": "定量构效关系建模",
+    "description": "构建定量结构与活性关系模型"
+  },
+  "chemical-space-exploration": {
+    "name": "化学空间探索",
+    "description": "可视化并探索化合物库的化学空间"
+  },
+  "spectral-analysis-nmr": {
+    "name": "核磁共振谱分析",
+    "description": "解释并归属核磁共振谱"
+  },
+  "spectral-analysis-ms": {
+    "name": "质谱分析",
+    "description": "分析并解释质谱"
+  },
+  "thermodynamics-calculation": {
+    "name": "热力学计算",
+    "description": "计算热力学性质与平衡"
+  },
+  "pka-prediction": {
+    "name": "酸解离常数预测",
+    "description": "预测分子的 pKa 值"
+  },
+  "solubility-prediction": {
+    "name": "溶解度预测",
+    "description": "预测水溶性并分析制剂相关因素"
+  },
+  "reaction-optimization": {
+    "name": "反应优化",
+    "description": "设计实验以优化反应条件"
+  },
+  "polymer-design": {
+    "name": "聚合物设计与分析",
+    "description": "设计具有目标性质的聚合物"
+  },
+  "catalyst-design": {
+    "name": "催化剂设计",
+    "description": "设计并筛选化学反应催化剂"
+  },
+  "chemical-safety-assessment": {
+    "name": "化学品安全评估",
+    "description": "评估化合物的危害与安全性"
+  },
+  "metabolite-identification": {
+    "name": "代谢物鉴定",
+    "description": "根据质谱数据鉴定代谢物"
+  },
+  "synthetic-accessibility": {
+    "name": "合成可及性评分",
+    "description": "评估化合物的合成难易程度"
+  },
+  "target-identification": {
+    "name": "药物靶标识别",
+    "description": "识别并验证疾病治疗靶标"
+  },
+  "virtual-screening": {
+    "name": "虚拟筛选",
+    "description": "针对靶标筛选化合物库"
+  },
+  "admet-prediction": {
+    "name": "药代与毒性预测",
+    "description": "预测吸收、分布、代谢、排泄和毒性"
+  },
+  "lead-optimization": {
+    "name": "先导化合物优化",
+    "description": "优化效力、选择性以及药代与毒性特征"
+  },
+  "drug-repurposing": {
+    "name": "药物再利用",
+    "description": "寻找现有药物的新治疗适应症"
+  },
+  "pharmacokinetics-modeling": {
+    "name": "药代动力学建模",
+    "description": "进行药代动力学建模与模拟"
+  },
+  "dose-response-analysis": {
+    "name": "剂量反应分析",
+    "description": "拟合剂量反应曲线并计算 EC50 与 IC50"
+  },
+  "drug-interaction-prediction": {
+    "name": "药物相互作用预测",
+    "description": "预测药物间相互作用及其机制"
+  },
+  "clinical-trial-design": {
+    "name": "临床试验设计",
+    "description": "设计临床试验方案"
+  },
+  "biomarker-discovery": {
+    "name": "生物标志物发现",
+    "description": "从组学数据中识别并验证生物标志物"
+  },
+  "toxicity-prediction": {
+    "name": "毒性预测",
+    "description": "预测化合物毒性与安全风险"
+  },
+  "pharmacogenomics-analysis": {
+    "name": "药物基因组学分析",
+    "description": "分析影响药物反应的遗传变异"
+  },
+  "drug-target-network": {
+    "name": "药物与靶标相互作用网络",
+    "description": "绘制化合物的多靶点药理网络"
+  },
+  "competitive-landscape-pharma": {
+    "name": "医药竞争格局分析",
+    "description": "分析某一治疗领域的竞争格局"
+  },
+  "side-effect-prediction": {
+    "name": "不良反应预测",
+    "description": "根据分子结构预测药物不良反应"
+  },
+  "formulation-optimization": {
+    "name": "制剂优化",
+    "description": "优化药物制剂以改善生物利用度"
+  },
+  "quantum-circuit-design": {
+    "name": "量子电路设计",
+    "description": "为特定算法设计并模拟量子电路"
+  },
+  "quantum-simulation": {
+    "name": "量子系统模拟",
+    "description": "模拟量子多体系统"
+  },
+  "quantum-ml-model": {
+    "name": "量子机器学习",
+    "description": "构建量子与经典混合机器学习模型"
+  },
+  "classical-mechanics-sim": {
+    "name": "经典力学模拟",
+    "description": "模拟牛顿或拉格朗日力学系统"
+  },
+  "electromagnetic-simulation": {
+    "name": "电磁模拟",
+    "description": "求解电磁场问题中的麦克斯韦方程"
+  },
+  "statistical-mechanics": {
+    "name": "统计力学模拟",
+    "description": "对统计系综开展蒙特卡洛与分子动力学模拟"
+  },
+  "particle-physics-analysis": {
+    "name": "粒子物理数据分析",
+    "description": "分析高能物理碰撞数据"
+  },
+  "condensed-matter-bands": {
+    "name": "能带结构计算",
+    "description": "计算电子能带结构与态密度"
+  },
+  "optics-simulation": {
+    "name": "光学模拟",
+    "description": "模拟透镜、激光器和波导等光学系统"
+  },
+  "thermodynamic-modeling": {
+    "name": "热力学建模",
+    "description": "建立热力学循环与能源系统模型"
+  },
+  "gravitational-wave-analysis": {
+    "name": "引力波分析",
+    "description": "分析 LIGO 与 Virgo 的引力波信号数据"
+  },
+  "plasma-physics-sim": {
+    "name": "等离子体物理模拟",
+    "description": "模拟等离子体行为与磁流体动力学"
+  },
+  "quantum-error-correction": {
+    "name": "量子纠错",
+    "description": "设计并分析量子纠错码"
+  },
+  "nuclear-decay-analysis": {
+    "name": "核衰变分析",
+    "description": "分析放射性衰变数据与核反应"
+  },
+  "crystal-structure-prediction": {
+    "name": "晶体结构预测",
+    "description": "为给定组成预测稳定的晶体结构"
+  },
+  "phase-diagram-analysis": {
+    "name": "相图分析",
+    "description": "构建并解释相图"
+  },
+  "mechanical-property-prediction": {
+    "name": "力学性质预测",
+    "description": "预测材料的弹性模量、硬度与强度"
+  },
+  "materials-screening": {
+    "name": "高通量材料筛选",
+    "description": "从材料数据库中筛选具有目标性质的材料"
+  },
+  "defect-analysis": {
+    "name": "缺陷分析",
+    "description": "分析晶体中的点缺陷、空位与杂质"
+  },
+  "alloy-design": {
+    "name": "合金设计",
+    "description": "设计具有目标力学或功能性质的合金"
+  },
+  "battery-material-analysis": {
+    "name": "电池材料分析",
+    "description": "评估用于电化学储能的材料"
+  },
+  "thermal-conductivity-modeling": {
+    "name": "热导率建模",
+    "description": "预测材料的热传输性质"
+  },
+  "surface-energy-calculation": {
+    "name": "表面能分析",
+    "description": "计算表面能并预测晶体形貌"
+  },
+  "polymer-property-prediction": {
+    "name": "聚合物性质预测",
+    "description": "预测聚合物的热学、力学与传输性质"
+  },
+  "band-structure-calculation": {
+    "name": "电子能带结构分析",
+    "description": "计算材料的电子能带结构与态密度"
+  },
+  "materials-literature-review": {
+    "name": "材料科学文献综述",
+    "description": "梳理材料科学主题的相关文献"
+  },
+  "clinical-trial-analysis": {
+    "name": "临床试验分析",
+    "description": "使用合适的终点评价临床试验数据"
+  },
+  "survival-analysis-clinical": {
+    "name": "临床生存分析",
+    "description": "采用 Kaplan-Meier 与 Cox 回归分析临床结局"
+  },
+  "epidemiological-study": {
+    "name": "流行病学研究设计",
+    "description": "设计并分析观察性流行病学研究"
+  },
+  "medical-image-analysis": {
+    "name": "医学影像分析",
+    "description": "分析放射影像或病理图像"
+  },
+  "diagnostic-accuracy": {
+    "name": "诊断试验准确性评估",
+    "description": "评价诊断试验的敏感度、特异度与 ROC 曲线"
+  },
+  "treatment-comparison": {
+    "name": "治疗效果比较",
+    "description": "比较不同组的治疗结局"
+  },
+  "risk-prediction-model": {
+    "name": "临床风险预测模型",
+    "description": "构建并验证临床结局风险预测模型"
+  },
+  "adverse-event-analysis": {
+    "name": "不良事件分析",
+    "description": "分析临床研究中的安全性数据"
+  },
+  "cost-effectiveness-analysis": {
+    "name": "成本效果分析",
+    "description": "对干预措施开展卫生经济学评价"
+  },
+  "patient-cohort-study": {
+    "name": "患者队列研究",
+    "description": "分析包含多变量结局的患者队列"
+  },
+  "systematic-review-clinical": {
+    "name": "临床系统综述",
+    "description": "按 PRISMA 要求对临床证据开展系统综述"
+  },
+  "clinical-guideline-summary": {
+    "name": "临床指南总结",
+    "description": "总结并比较临床实践指南"
+  },
+  "quality-improvement": {
+    "name": "医疗质量改进分析",
+    "description": "分析医疗质量指标与改进措施"
+  },
+  "health-equity-analysis": {
+    "name": "健康公平性分析",
+    "description": "分析不同人口群体之间的健康差异"
+  },
+  "electronic-health-records": {
+    "name": "电子健康记录分析",
+    "description": "分析结构化电子健康记录数据"
+  },
+  "longitudinal-study": {
+    "name": "纵向数据分析",
+    "description": "分析随时间变化的重复测量与面板数据"
+  },
+  "population-health-assessment": {
+    "name": "人群健康评估",
+    "description": "评估人群的健康状况与健康需求"
+  },
+  "case-control-analysis": {
+    "name": "病例对照分析",
+    "description": "分析匹配或未匹配的病例对照研究数据"
+  },
+  "eeg-analysis": {
+    "name": "脑电信号分析",
+    "description": "处理并分析脑电图数据"
+  },
+  "fmri-analysis": {
+    "name": "功能磁共振分析流程",
+    "description": "处理并分析功能磁共振脑成像数据"
+  },
+  "spike-sorting": {
+    "name": "神经脉冲分类",
+    "description": "对细胞外记录中的神经脉冲进行分类"
+  },
+  "neural-decoding": {
+    "name": "神经解码",
+    "description": "根据神经活动解码刺激或行为"
+  },
+  "connectivity-analysis": {
+    "name": "脑连接分析",
+    "description": "分析脑的功能连接与结构连接"
+  },
+  "behavioral-analysis": {
+    "name": "行为数据分析",
+    "description": "分析行为实验中的反应时间、选择与学习过程"
+  },
+  "calcium-imaging-analysis": {
+    "name": "钙成像分析",
+    "description": "处理并分析钙成像记录"
+  },
+  "neuropixels-processing": {
+    "name": "Neuropixels 数据处理",
+    "description": "处理高密度 Neuropixels 探针记录"
+  },
+  "brain-atlas-mapping": {
+    "name": "脑图谱映射",
+    "description": "将神经数据映射至标准化脑图谱"
+  },
+  "computational-neuron-model": {
+    "name": "计算神经元模型",
+    "description": "构建并模拟生物物理神经元模型"
+  },
+  "psychophysics-analysis": {
+    "name": "心理物理学分析",
+    "description": "拟合心理测量函数并分析知觉数据"
+  },
+  "neural-network-comparison": {
+    "name": "比较生物与人工神经网络",
+    "description": "比较生物神经表征与深度网络层"
+  },
+  "species-distribution-model": {
+    "name": "物种分布模型",
+    "description": "预测物种的适宜生境与分布范围"
+  },
+  "biodiversity-assessment": {
+    "name": "生物多样性评估",
+    "description": "分析物种丰富度、多样性指数与群落组成"
+  },
+  "population-dynamics": {
+    "name": "种群动力学建模",
+    "description": "模拟种群增长、捕食关系或竞争"
+  },
+  "climate-data-analysis": {
+    "name": "气候数据分析",
+    "description": "分析温度、降水与气候变化趋势"
+  },
+  "remote-sensing-analysis": {
+    "name": "遥感分析",
+    "description": "利用卫星影像开展环境监测"
+  },
+  "phylogeography": {
+    "name": "系统地理学分析",
+    "description": "分析遗传谱系的地理分布"
+  },
+  "ecological-network-analysis": {
+    "name": "生态网络分析",
+    "description": "分析食物网、互利网络或相互作用网络"
+  },
+  "conservation-prioritization": {
+    "name": "保护优先级评估",
+    "description": "识别优先保护区域或物种"
+  },
+  "water-quality-analysis": {
+    "name": "水质分析",
+    "description": "分析水化学与水质监测数据"
+  },
+  "carbon-footprint-analysis": {
+    "name": "碳足迹分析",
+    "description": "计算并分析温室气体排放"
+  },
+  "environmental-impact": {
+    "name": "环境影响评估",
+    "description": "评估项目或活动的环境影响"
+  },
+  "habitat-suitability": {
+    "name": "生境适宜性分析",
+    "description": "评估目标物种的生境质量与适宜程度"
+  },
+  "microbial-ecology": {
+    "name": "微生物群落生态分析",
+    "description": "分析微生物群落的 16S 或 ITS 扩增子测序数据"
+  },
+  "invasive-species-risk": {
+    "name": "外来物种入侵风险评估",
+    "description": "评估非本地物种的入侵风险与潜在扩散"
+  },
+  "stock-market-analysis": {
+    "name": "股票市场分析",
+    "description": "分析股价、技术指标与基本面"
+  },
+  "portfolio-optimization": {
+    "name": "投资组合优化",
+    "description": "利用现代投资组合理论优化资产配置"
+  },
+  "risk-assessment-finance": {
+    "name": "金融风险评估",
+    "description": "计算 VaR、CVaR 并开展情景压力测试"
+  },
+  "economic-indicator-analysis": {
+    "name": "经济指标分析",
+    "description": "分析 GDP、通胀、就业等宏观指标"
+  },
+  "financial-statement-analysis": {
+    "name": "财务报表分析",
+    "description": "根据 SEC 披露或报告分析企业财务"
+  },
+  "hedge-fund-analysis": {
+    "name": "对冲基金分析",
+    "description": "分析对冲基金的表现、策略与风险"
+  },
+  "cryptocurrency-analysis": {
+    "name": "加密货币分析",
+    "description": "分析加密资产价格、链上指标与相关性"
+  },
+  "time-series-forecasting-finance": {
+    "name": "金融时间序列预测",
+    "description": "使用机器学习与统计模型预测金融时间序列"
+  },
+  "credit-risk-model": {
+    "name": "信用风险模型",
+    "description": "构建信用评分与违约预测模型"
+  },
+  "market-sentiment-analysis": {
+    "name": "市场情绪分析",
+    "description": "根据新闻、社交媒体或报告分析市场情绪"
+  },
+  "econometric-modeling": {
+    "name": "计量经济建模",
+    "description": "为政策分析构建并估计计量经济模型"
+  },
+  "fiscal-policy-analysis": {
+    "name": "财政政策分析",
+    "description": "分析政府预算、债务与财政可持续性"
+  },
+  "real-estate-analysis": {
+    "name": "房地产市场分析",
+    "description": "分析房产价值、市场趋势与投资机会"
+  },
+  "startup-valuation": {
+    "name": "初创企业估值",
+    "description": "采用多种方法评估早期企业价值"
+  },
+  "esg-analysis": {
+    "name": "环境、社会与治理分析",
+    "description": "评估企业的环境、社会与治理表现"
+  },
+  "trade-flow-analysis": {
+    "name": "贸易流动分析",
+    "description": "分析国际贸易格局与贸易收支"
+  },
+  "survey-analysis": {
+    "name": "问卷数据分析",
+    "description": "使用合适的统计方法分析问卷回答"
+  },
+  "text-mining-social": {
+    "name": "文本挖掘与自然语言处理",
+    "description": "从文本语料中提取主题与模式"
+  },
+  "demographic-analysis": {
+    "name": "人口分析",
+    "description": "分析人口结构、趋势与预测"
+  },
+  "network-analysis-social": {
+    "name": "社会网络分析",
+    "description": "分析社会网络的中心性、社群与影响力"
+  },
+  "sentiment-analysis-social": {
+    "name": "社交媒体情感分析",
+    "description": "根据社交媒体数据分析公众情绪"
+  },
+  "policy-evaluation": {
+    "name": "政策影响评价",
+    "description": "评价政策干预的因果效应"
+  },
+  "education-outcomes": {
+    "name": "教育结果分析",
+    "description": "分析学生表现与教育干预"
+  },
+  "public-opinion-analysis": {
+    "name": "公众意见分析",
+    "description": "分析民调数据与公众意见趋势"
+  },
+  "migration-analysis": {
+    "name": "人口迁移分析",
+    "description": "分析人口迁移模式、流向与影响因素"
+  },
+  "inequality-measurement": {
+    "name": "不平等测度",
+    "description": "测量并分析经济或社会不平等"
+  },
+  "behavioral-experiment": {
+    "name": "行为实验分析",
+    "description": "分析心理学或行为经济学实验数据"
+  },
+  "content-analysis-social": {
+    "name": "内容分析",
+    "description": "对媒体或文档进行系统编码与分析"
+  },
+  "differential-equations": {
+    "name": "求解微分方程",
+    "description": "求解常微分方程与偏微分方程的解析解和数值解"
+  },
+  "optimization-problem": {
+    "name": "求解优化问题",
+    "description": "寻找约束或无约束问题的最优解"
+  },
+  "bayesian-inference": {
+    "name": "贝叶斯推断",
+    "description": "构建贝叶斯模型并计算后验分布"
+  },
+  "monte-carlo-simulation": {
+    "name": "蒙特卡洛模拟",
+    "description": "通过随机抽样估计目标量"
+  },
+  "graph-theory-analysis": {
+    "name": "图论分析",
+    "description": "分析图的性质、算法与优化问题"
+  },
+  "symbolic-computation": {
+    "name": "符号计算",
+    "description": "开展精确代数运算、化简与证明"
+  },
+  "numerical-methods": {
+    "name": "数值方法实现",
+    "description": "实现并比较数值算法"
+  },
+  "stochastic-modeling": {
+    "name": "随机过程建模",
+    "description": "建立并模拟随机过程"
+  },
+  "game-theory-analysis": {
+    "name": "博弈论分析",
+    "description": "分析策略互动并寻找均衡"
+  },
+  "topology-analysis": {
+    "name": "拓扑数据分析",
+    "description": "对数据应用持久同调与拓扑分析"
+  },
+  "fourier-analysis": {
+    "name": "傅里叶分析",
+    "description": "进行频率分解与频谱分析"
+  },
+  "dynamical-systems": {
+    "name": "动力系统分析",
+    "description": "分析动力系统的稳定性、分岔与混沌"
+  },
+  "classification-model": {
+    "name": "构建分类模型",
+    "description": "训练、评估并解释分类模型"
+  },
+  "nlp-text-analysis": {
+    "name": "自然语言文本分析",
+    "description": "利用分类、命名实体识别、摘要或嵌入分析文本"
+  },
+  "image-classification": {
+    "name": "图像分类",
+    "description": "采用卷积神经网络与迁移学习构建图像分类器"
+  },
+  "anomaly-detection": {
+    "name": "异常检测",
+    "description": "检测数据集中的离群点与异常"
+  },
+  "feature-engineering": {
+    "name": "特征工程",
+    "description": "从原始数据中构建有效特征"
+  },
+  "hyperparameter-tuning": {
+    "name": "超参数调优",
+    "description": "通过系统搜索优化模型超参数"
+  },
+  "model-interpretability": {
+    "name": "模型可解释性分析",
+    "description": "利用 SHAP、LIME 与特征分析解释机器学习预测"
+  },
+  "transfer-learning": {
+    "name": "迁移学习",
+    "description": "将预训练模型适配至新任务与领域"
+  },
+  "graph-neural-network": {
+    "name": "图神经网络",
+    "description": "构建用于节点、边或整图预测的图神经网络"
+  },
+  "generative-model": {
+    "name": "构建生成模型",
+    "description": "训练 VAE、GAN 或扩散模型以生成数据"
+  },
+  "reinforcement-learning": {
+    "name": "强化学习",
+    "description": "训练用于序贯决策的强化学习智能体"
+  },
+  "model-comparison": {
+    "name": "模型比较与选择",
+    "description": "系统比较机器学习模型并选择最优模型"
+  },
+  "dataset-bias-audit": {
+    "name": "数据集与模型偏差审查",
+    "description": "审查数据和模型的公平性与偏差"
+  },
+  "recommendation-system": {
+    "name": "构建推荐系统",
+    "description": "构建协同过滤或基于内容的推荐引擎"
+  },
+  "federated-learning-design": {
+    "name": "联邦学习设计",
+    "description": "设计保护隐私的分布式机器学习系统"
+  },
+  "cfd-simulation": {
+    "name": "计算流体动力学模拟",
+    "description": "开展计算流体动力学模拟与分析"
+  },
+  "signal-processing": {
+    "name": "信号处理",
+    "description": "对信号进行滤波、变换与分析"
+  },
+  "control-system-design": {
+    "name": "控制系统设计",
+    "description": "设计并模拟反馈控制系统"
+  },
+  "heat-transfer-analysis": {
+    "name": "传热分析",
+    "description": "分析导热、对流与辐射传热"
+  },
+  "vibration-analysis": {
+    "name": "振动分析",
+    "description": "分析机械振动并开展模态分析"
+  },
+  "process-simulation": {
+    "name": "工艺过程模拟",
+    "description": "模拟化工或制造过程"
+  },
+  "reliability-analysis": {
+    "name": "可靠性分析",
+    "description": "分析系统可靠性、故障率与维护需求"
+  },
+  "sensor-data-analysis": {
+    "name": "传感器与物联网数据分析",
+    "description": "处理并分析多传感器时间序列数据"
+  },
+  "robot-path-planning": {
+    "name": "机器人路径规划",
+    "description": "为机器人系统规划无碰撞路径"
+  },
+  "structural-analysis-eng": {
+    "name": "工程结构分析",
+    "description": "分析结构载荷、应力与变形"
+  },
+  "finite-element-analysis": {
+    "name": "有限元分析",
+    "description": "为应力、热学或电磁问题建立有限元模型"
+  },
+  "circuit-simulation": {
+    "name": "电路模拟",
+    "description": "模拟并分析电子电路"
+  },
+  "stellar-classification": {
+    "name": "恒星分类",
+    "description": "根据测光或光谱数据对恒星分类"
+  },
+  "exoplanet-detection": {
+    "name": "系外行星探测",
+    "description": "根据凌日或径向速度数据探测系外行星"
+  },
+  "spectral-analysis-astro": {
+    "name": "天文光谱分析",
+    "description": "分析恒星或星系光谱的成分与运动学特征"
+  },
+  "galaxy-morphology": {
+    "name": "星系形态分类",
+    "description": "对星系形状与结构参数进行分类"
+  },
+  "orbital-mechanics": {
+    "name": "轨道力学计算",
+    "description": "计算轨道、轨道转移与任务轨迹"
+  },
+  "light-curve-analysis": {
+    "name": "光变曲线分析",
+    "description": "分析天体亮度随时间的变化"
+  },
+  "radio-astronomy-analysis": {
+    "name": "射电天文分析",
+    "description": "处理并分析射电望远镜观测数据"
+  },
+  "gravitational-lensing": {
+    "name": "引力透镜分析",
+    "description": "分析引力透镜以探测质量分布"
+  },
+  "dark-matter-constraints": {
+    "name": "暗物质性质约束",
+    "description": "根据观测数据推导暗物质性质的约束"
+  },
+  "solar-activity-analysis": {
+    "name": "太阳活动分析",
+    "description": "分析太阳耀斑、黑子与空间天气数据"
+  },
+  "cosmic-ray-analysis": {
+    "name": "宇宙射线分析",
+    "description": "分析宇宙射线通量、成分与能谱"
+  },
+  "metabolic-modeling": {
+    "name": "代谢通量分析",
+    "description": "对代谢网络进行约束建模"
+  },
+  "glycan-analysis": {
+    "name": "糖链工程与分析",
+    "description": "分析并设计糖基化模式"
+  },
+  "digital-pathology": {
+    "name": "数字病理分析",
+    "description": "分析全切片组织病理图像"
+  },
+  "metabolomics-analysis": {
+    "name": "代谢组数据分析",
+    "description": "分析非靶向或靶向代谢组数据集"
+  },
+  "vc-deal-screening": {
+    "name": "风险投资项目筛选",
+    "description": "通过市场规模测算与风险分析评估初创企业"
+  },
+  "vc-fund-benchmarking": {
+    "name": "风险投资基金对标",
+    "description": "按设立年份、策略与回报对比同类基金"
+  },
+  "cap-table-modeling": {
+    "name": "股权结构建模",
+    "description": "模拟各轮融资中的股权结构、稀释与收益分配"
+  },
+  "market-sizing": {
+    "name": "市场规模测算",
+    "description": "采用自下而上与自上而下方法测算 TAM、SAM 和 SOM"
+  },
+  "dcf-valuation": {
+    "name": "现金流折现估值模型",
+    "description": "开展完整的现金流折现估值与敏感性分析"
+  },
+  "comparable-company-analysis": {
+    "name": "可比公司分析",
+    "description": "使用交易倍数开展同类公司对比与相对估值"
+  },
+  "ma-deal-analysis": {
+    "name": "并购交易分析",
+    "description": "评估并购的协同效应、每股收益增厚或摊薄及整合"
+  },
+  "lbo-model": {
+    "name": "杠杆收购模型",
+    "description": "构建包含债务明细与回报分析的杠杆收购模型"
+  },
+  "pe-fund-due-diligence": {
+    "name": "私募与风险投资尽调报告",
+    "description": "对目标公司开展全面尽职调查分析"
+  },
+  "startup-data-room-dd": {
+    "name": "初创企业资料室尽调",
+    "description": "分析提供的资料室文件以评估初创企业投资机会"
+  },
+  "pitch-deck-analysis": {
+    "name": "融资演示文稿评析",
+    "description": "从投资者角度审阅初创企业融资演示文稿"
+  },
+  "industry-deep-dive": {
+    "name": "行业深度分析",
+    "description": "为形成投资逻辑开展全面行业分析"
+  },
+  "investment-memo": {
+    "name": "撰写投资备忘录",
+    "description": "为投资委员会编写结构化投资备忘录"
+  },
+  "public-equity-research": {
+    "name": "股票研究报告",
+    "description": "编写包含目标价的卖方风格股票研究报告"
+  },
+  "fund-of-funds-analysis": {
+    "name": "母基金组合分析",
+    "description": "为有限合伙人或母基金分析基金出资组合"
+  },
+  "scenario-modeling": {
+    "name": "情景与敏感性建模",
+    "description": "构建包含龙卷风图与蒙特卡洛分析的多情景财务模型"
+  },
+  "convertible-note-analysis": {
+    "name": "可转债与 SAFE 分析",
+    "description": "模拟可转换融资工具的转换情景"
+  },
+  "cohort-revenue-analysis": {
+    "name": "客户群与收入质量分析",
+    "description": "分析 SaaS 或订阅业务的收入留存、扩张与客户群行为"
+  },
+  "secondaries-pricing": {
+    "name": "私募二级交易定价分析",
+    "description": "估计私募基金或股权二级交易的公允价值"
+  },
+  "public-market-factor-analysis": {
+    "name": "因子分析与归因",
+    "description": "按风险因子分解投资组合回报并进行归因"
+  },
+  "venture-market-map": {
+    "name": "创投市场全景图",
+    "description": "按融资、阶段与定位梳理行业初创企业格局"
+  },
+  "options-strategy-analysis": {
+    "name": "期权策略分析",
+    "description": "使用收益图与希腊字母指标建模并可视化期权策略"
+  },
+  "debt-analysis": {
+    "name": "债务与信用分析",
+    "description": "分析企业债务结构、契约与信用质量"
+  },
+  "activist-investor-analysis": {
+    "name": "激进投资者行动分析",
+    "description": "分析激进投资行动的逻辑、目标与可能结果"
+  },
+  "fund-formation": {
+    "name": "基金经济与设立建模",
+    "description": "模拟普通合伙人和有限合伙人的经济利益、费用与回报情景"
+  }
+}

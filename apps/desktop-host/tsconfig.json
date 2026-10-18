@@ -1,0 +1,64 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    { "path": "../../packages/boot/cmdline" },
+    { "path": "../../packages/web/web" },
+    { "path": "../../packages/web/web-search-studybuddy" },
+    { "path": "../../packages/skill/skill-safety-assistant" },
+    { "path": "../../packages/api/workspace-controller/tsconfig.host.json" },
+    { "path": "../../packages/skill/skill" },
+    { "path": "../../packages/core/agent-default-model" },
+    { "path": "../../packages/llm/llm-studybuddy-builtin" },
+    { "path": "../../packages/llm/llm" },
+    { "path": "../../packages/llm/llm-pi-ai" },
+    { "path": "../../packages/util/values" },
+    { "path": "../../vendor/cordis" },
+    { "path": "../../packages/core/agent" },
+    { "path": "../../packages/core/session" },
+    { "path": "../../packages/session/session-persistence" },
+    { "path": "../../packages/session/working-directory" },
+    { "path": "../../packages/session-query/session-log-export/tsconfig.host.json" },
+    { "path": "../../packages/api/session-controller/tsconfig.host.json" },
+    { "path": "../../packages/compaction/compaction" },
+    { "path": "../../packages/compaction/compaction-image-offload" },
+    { "path": "../../packages/attachment/attachment" },
+    { "path": "../../packages/session/session-projection" },
+    { "path": "../../packages/jobs/jobs" },
+    { "path": "../../packages/core/tools" },
+    { "path": "../../packages/storage/storage-domain" },
+    { "path": "../../packages/sandbox/sandbox-policy" },
+    { "path": "../../packages/interaction/user-approval" },
+    { "path": "../../packages/subagent/subagent" },
+    { "path": "../../packages/mcp/mcp-client" },
+    { "path": "../../packages/core/system-prompt" },
+    { "path": "../../packages/schedule/schedule" },
+    { "path": "../../packages/goal/goal" },
+    { "path": "../../packages/workspace/workspace" },
+    { "path": "../../packages/skill/skill-office" },
+    { "path": "../../packages/skill/skill-filesystem" },
+    { "path": "../../packages/util/home-paths" },
+    { "path": "../../packages/skill/tool-workspace-dependencies" },
+    {
+      "path": "../cli"
+    },
+    {
+      "path": "../../packages/boot/app-boot"
+    },
+    {
+      "path": "../../packages/client/connection/tsconfig.host.json"
+    },
+    {
+      "path": "../../packages/host/webserver"
+    },
+    {
+      "path": "../../packages/credentials/deepseek-account"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+export const zh={title:'剪视频',loading:'正在打开…',failed:'视频工作区加载失败',retry:'重试',signedOut:'请先登录',desktop:'请在桌面客户端打开',empty:'打开或新建一个视频项目',nativeUnavailable:'对话暂不可用',referenceFailed:'引用添加失败',applyReference:'添加引用',models:'选择模型',tools:'工具中心'} as const
+export type VideoLocaleKey=keyof typeof zh
+export const en:Record<VideoLocaleKey,string>={title:'Video editing',loading:'Opening…',failed:'Could not open the video workspace',retry:'Retry',signedOut:'Sign in to continue',desktop:'Open in the desktop app',empty:'Open or create a video project',nativeUnavailable:'Conversation is unavailable',referenceFailed:'Could not add the reference',applyReference:'Add reference',models:'Choose model',tools:'Tools'}

@@ -1,0 +1,1 @@
+export function providersRoute(_req,res){res.writeHead(403,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({code:'VIDEO_NATIVE_SERVICES_MANAGED',error:'VIDEO_NATIVE_SERVICES_MANAGED'}));}

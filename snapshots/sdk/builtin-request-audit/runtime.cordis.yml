@@ -1,0 +1,9 @@
+# Projection-only synthetic native authority; the model is the keyless replay adapter.
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+
+- insert:
+    - id: snapshot-builtin-request-audit
+      name: './request-audit-producer.mjs'

@@ -1,0 +1,15 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+/** Static product information within the existing Settings shell. */
+import { useState } from 'react';
+import { Button, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives';
+import { COMMUNITY_QQ_GROUP, integratedProjects, referenceProjects } from "./about-projects.js";
+import css from './AboutStudyBuddySection.module.css';
+export function AboutStudyBuddySection({ t }) {
+    const [copyState, setCopyState] = useState('idle');
+    const copyContact = async () => {
+        setCopyState('copying');
+        setCopyState(await writeClipboard(COMMUNITY_QQ_GROUP) ? 'copied' : 'failed');
+    };
+    return _jsxs("section", { className: css.section, "aria-label": t('aboutNav'), children: [_jsxs("header", { className: css.header, children: [_jsx("h2", { children: t('aboutNav') }), _jsx("p", { children: t('aboutIntro') })] }), _jsxs("section", { className: css.panel, "aria-labelledby": "studybuddy-about-create", children: [_jsx("h3", { id: "studybuddy-about-create", children: t('aboutCoCreate') }), _jsx("p", { children: t('aboutInvitation') }), _jsxs("div", { className: css.contact, children: [_jsxs("span", { className: css.qq, children: [t('aboutQqLabel'), " ", _jsx("strong", { children: COMMUNITY_QQ_GROUP })] }), _jsx(Button, { variant: "outline", size: "sm", disabled: copyState === 'copying', onClick: () => { void copyContact(); }, children: t(copyState === 'copied' ? 'copied' : 'aboutCopyQq') })] }), _jsx("p", { className: css.muted, children: t('aboutOpenSource') }), copyState === 'failed' && _jsx("p", { className: css.muted, role: "status", children: t('aboutCopyFailed') }), copyState === 'copied' && _jsx("span", { className: css.srOnly, role: "status", children: t('aboutQqCopied') })] }), _jsxs("section", { className: css.group, "aria-labelledby": "studybuddy-about-projects", children: [_jsx("h3", { id: "studybuddy-about-projects", children: t('aboutProjects') }), _jsx("p", { className: css.muted, children: t('aboutThanks') }), _jsx("ul", { className: css.projects, children: integratedProjects.map(project => _jsx("li", { children: _jsxs("div", { className: css.projectHeading, children: [_jsx("a", { href: project.url, target: "_blank", rel: "noopener noreferrer", children: project.name }), _jsx("span", { className: css.license, children: project.license })] }) }, project.url)) })] }), _jsxs("section", { className: css.group, "aria-labelledby": "studybuddy-about-references", children: [_jsx("h3", { id: "studybuddy-about-references", children: t('aboutReferences') }), _jsx("ul", { className: css.projects, children: referenceProjects.map(project => _jsx("li", { children: _jsxs("div", { className: css.projectHeading, children: [_jsx("a", { href: project.url, target: "_blank", rel: "noopener noreferrer", children: project.name }), _jsx("span", { className: css.license, children: project.license })] }) }, project.url)) })] })] });
+}
+//# sourceMappingURL=AboutStudyBuddySection.js.map

@@ -1,0 +1,478 @@
+/**
+ * Map Pi's AgentSessionEvent union onto a stable, compact SSE schema the
+ * frontend consumes. We deliberately flatten the streaming deltas and drop
+ * Pi-internal lifecycle noise so the client contract stays small.
+ */
+import type {
+  AgentSession,
+  AgentSessionEvent,
+  ContextUsage,
+} from "@earendil-works/pi-coding-agent";
+import { calculateContextTokens } from '../runtime/context-usage.ts';
+import { skillLabelForRead } from "./skill-label.ts";
+import {
+  scientificResultFromDetails,
+  type ScientificResultCard,
+} from "./scientific-result.ts";
+
+export interface ClientFrame {
+  type: string;
+  [k: string]: unknown;
+}
+
+/** Keep Pi's context-utilization shape explicit on the wire. */
+export function contextUsageFrame(usage: ContextUsage | undefined): ClientFrame | null {
+  if (!usage) return null;
+  return {
+    type: "context_usage",
+    tokens: usage.tokens,
+    contextWindow: usage.contextWindow,
+    percent: usage.percent,
+  };
+}
+
+/**
+ * Pi estimates a pristine session from conversation messages alone, which
+ * yields a misleading zero before the first provider response has measured
+ * the system prompt and tool schemas. Keep that state unknown until a
+ * successful assistant response supplies real usage.
+ */
+export function contextUsageForClient(
+  session: Pick<AgentSession, "getContextUsage" | "messages">,
+): ContextUsage | undefined {
+  const usage = session.getContextUsage();
+  if (!usage || usage.tokens === null) return usage;
+
+  const hasProviderUsage = session.messages.some((message) => {
+    if (message.role !== "assistant") return false;
+    if (message.stopReason === "aborted" || message.stopReason === "error") return false;
+    return calculateContextTokens(message.usage) > 0;
+  });
+
+  return hasProviderUsage
+    ? usage
+    : { tokens: null, contextWindow: usage.contextWindow, percent: null };
+}
+
+/** Frontmatter skill name when a `read` call is a skill activation. */
+export function skillFieldFor(
+  toolName: string,
+  args: unknown,
+  sandboxRoot: string,
+): { skill: string } | undefined {
+  if (toolName !== "read") return undefined;
+  const p = (args as { path?: unknown } | null | undefined)?.path;
+  const skill = skillLabelForRead(p, sandboxRoot);
+  return skill ? { skill } : undefined;
+}
+
+/**
+ * Rewrite absolute sandbox paths to sandbox-relative ones for display.
+ *
+ * Tool args and bash commands from Pi carry the real host path of the project
+ * sandbox (e.g. `/Users/.../projects/<id>/sandbox/de_analysis.py`). Surfacing
+ * that in the UI and in shared exports is noisy and leaks the user's
+ * filesystem layout. We collapse the sandbox root to a relative path:
+ *   - an exact path field `<root>/de_analysis.py` → `de_analysis.py`
+ *   - an embedded occurrence in a command (`cd <root> && …`) → `cd . && …`
+ */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Matcher for every spelling of the sandbox root worth stripping. Windows-ness
+ * is derived from the root string itself (contains "\") so behavior is
+ * unit-testable anywhere; on a Windows root, matching also covers the
+ * forward-slash spelling, either separator after the root, and any casing
+ * (NTFS is case-insensitive — drive letters routinely arrive lowercased).
+ */
+interface RootMatcher {
+  /** Prefix-strip one exact path string; null when no root prefix matches. */
+  strip(value: string): string | null;
+  /** Strip embedded occurrences inside larger strings (bash commands etc.). */
+  stripEmbedded(value: string): string;
+}
+
+function rootMatcher(sandboxRoot: string): RootMatcher {
+  const win = sandboxRoot.includes("\\");
+  const roots = win ? [sandboxRoot, sandboxRoot.replaceAll("\\", "/")] : [sandboxRoot];
+  const seps = win ? ["\\", "/"] : ["/"];
+  const norm = (s: string) => (win ? s.toLowerCase() : s);
+  const toWire = (s: string) => (win ? s.replaceAll("\\", "/") : s);
+  // root+sep followed by the rest of the path token: the tail is kept but its
+  // separators are normalized to the wire format.
+  const embedded = roots.flatMap((root) =>
+    seps.map((sep) => new RegExp(escapeRe(root + sep) + "([^\\s\"'`]*)", win ? "gi" : "g")),
+  );
+  const bare = roots.map((root) => new RegExp(escapeRe(root), win ? "gi" : "g"));
+  return {
+    strip(value) {
+      for (const root of roots) {
+        if (norm(value) === norm(root)) return ".";
+        for (const sep of seps) {
+          const prefix = root + sep;
+          if (norm(value.slice(0, prefix.length)) === norm(prefix)) {
+            return toWire(value.slice(prefix.length));
+          }
+        }
+      }
+      return null;
+    },
+    stripEmbedded(value) {
+      let s = value;
+      for (const re of embedded) s = s.replace(re, (_, tail: string) => toWire(tail));
+      for (const re of bare) s = s.replace(re, ".");
+      return s;
+    },
+  };
+}
+
+/** Strip an exact sandbox-root prefix off one path string; output is always
+ *  wire-format (forward slashes). Non-sandbox paths pass through unchanged. */
+export function stripSandboxRoot(value: string, sandboxRoot: string): string {
+  if (!sandboxRoot) return value;
+  return rootMatcher(sandboxRoot).strip(value) ?? value;
+}
+
+export function relativizeSandboxPaths<T>(value: T, sandboxRoot: string): T {
+  if (!sandboxRoot) return value;
+  // One matcher for the whole event/transcript — the root is constant.
+  return relativizeWith(value, rootMatcher(sandboxRoot));
+}
+
+function relativizeWith<T>(value: T, matcher: RootMatcher): T {
+  if (typeof value === "string") {
+    const stripped = matcher.strip(value) ?? value;
+    // Embedded references (inside bash commands, multi-path args, etc.).
+    return matcher.stripEmbedded(stripped) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => relativizeWith(v, matcher)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = relativizeWith(v, matcher);
+    }
+    return out as T;
+  }
+  return value;
+}
+
+/** Pull human-readable text out of a Pi tool result before capping it.
+ *  Results are usually `[{type:"text", text:"…"}]`; fall back to JSON. */
+function resultText(s: unknown): string {
+  if (typeof s === "string") return s;
+  if (Array.isArray(s)) {
+    const parts = s
+      .map((p) =>
+        p && typeof p === "object" && typeof (p as { text?: unknown }).text === "string"
+          ? (p as { text: string }).text
+          : null,
+      )
+      .filter((t): t is string => t !== null);
+    return parts.join("\n");
+  }
+  if (s && typeof s === "object") {
+    const content = (s as { content?: unknown }).content;
+    if (content !== undefined) return resultText(content);
+  }
+  return JSON.stringify(s ?? "");
+}
+
+/** Flatten a user message's content (string or content-part array) to plain
+ *  text. Image parts are dropped — the UI renders steered messages as text. */
+function userMessageText(message: unknown): string {
+  const content = (message as { content?: unknown }).content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((p) =>
+        p && typeof p === "object" && (p as { type?: string }).type === "text"
+          ? String((p as { text?: unknown }).text ?? "")
+          : "",
+      )
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
+}
+
+/**
+ * Detail keys forwarded to the client per custom message type. Anything else
+ * (nested objects, interview payloads, child outputs) is dropped: like tool
+ * results, arbitrary extension details never reach the wire — only scalars we
+ * know how to render. pi-subagents 0.66 types; `compaction` is Kady's own.
+ */
+export const CUSTOM_MESSAGE_DETAIL_KEYS: Record<string, readonly string[]> = {
+  subagent_supervisor_request: [
+    "id",
+    "requestId",
+    "reason",
+    "expectsReply",
+    "runId",
+    "agent",
+    "childIndex",
+    "childTarget",
+    "requestBody",
+    "replyHint",
+  ],
+  subagent_watchdog_warning: [
+    "severity",
+    "summary",
+    "evidence",
+    "recommendedAction",
+    "category",
+    "confidence",
+    "source",
+    "agent",
+    "runId",
+    "stale",
+    "state",
+    "displayedAt",
+    "stalemateRepeats",
+  ],
+  subagent_steering_notice: ["state", "runId", "agent", "childIndex", "childTarget", "noticeText"],
+  subagent_control_notice: ["source", "childIntercomTarget", "noticeText"],
+  "subagent-notify": [
+    "agent",
+    "status",
+    "source",
+    "taskInfo",
+    "durationMs",
+    "workflowRunId",
+    "sessionLabel",
+    "handoffPath",
+  ],
+  "subagent-wait-subscription": ["token", "runId", "outcome"],
+  compaction: ["tokensBefore", "reason"],
+};
+
+export const MAX_CUSTOM_MESSAGE_CHARS = 8_000;
+const MAX_CUSTOM_DETAIL_CHARS = 512;
+
+export interface CustomMessageLike {
+  customType?: unknown;
+  content?: unknown;
+  display?: unknown;
+  details?: unknown;
+}
+
+/**
+ * Bounded, UI-safe projection of a Pi custom message (`role: "custom"`), the
+ * vehicle pi-subagents uses for supervisor requests, watchdog findings and
+ * completion notices. Returns null for `display: false` messages.
+ */
+export function customMessageFrame(
+  message: CustomMessageLike,
+  sandboxRoot = "",
+): ClientFrame | null {
+  if (message.display === false) return null;
+  const customType = typeof message.customType === "string" ? message.customType : "custom";
+  const raw = userMessageText(message);
+  const content = relativizeSandboxPaths(
+    raw.length > MAX_CUSTOM_MESSAGE_CHARS ? raw.slice(0, MAX_CUSTOM_MESSAGE_CHARS) + "…" : raw,
+    sandboxRoot,
+  );
+  const allowed = CUSTOM_MESSAGE_DETAIL_KEYS[customType];
+  const details: Record<string, string | number | boolean> = {};
+  if (allowed && message.details && typeof message.details === "object") {
+    const source = message.details as Record<string, unknown>;
+    for (const key of allowed) {
+      const value = source[key];
+      if (typeof value === "number" || typeof value === "boolean") details[key] = value;
+      else if (typeof value === "string") {
+        details[key] = relativizeSandboxPaths(
+          value.length > MAX_CUSTOM_DETAIL_CHARS
+            ? value.slice(0, MAX_CUSTOM_DETAIL_CHARS) + "…"
+            : value,
+          sandboxRoot,
+        );
+      }
+    }
+  }
+  return {
+    type: "message_start",
+    role: "custom",
+    customType,
+    content,
+    ...(Object.keys(details).length > 0 ? { details } : {}),
+  };
+}
+
+function cap(s: unknown, max = 4000): string {
+  const str = resultText(s);
+  return str.length > max ? str.slice(0, max) + "…" : str;
+}
+
+export const MAX_TOOL_RESULT_IMAGES = 4;
+export const MAX_TOOL_RESULT_IMAGE_BYTES = 2 * 1024 * 1024;
+const TOOL_RESULT_IMAGE_MIME = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+
+export interface ToolResultImage {
+  data: string;
+  mimeType: string;
+}
+
+export interface ToolResultFields {
+  result: string;
+  scientificResult?: ScientificResultCard;
+  images?: ToolResultImage[];
+  /** Number of invalid, oversized, or over-limit image blocks omitted. */
+  imagesTruncated?: number;
+}
+
+function base64Bytes(data: string): number {
+  const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((data.length * 3) / 4) - padding);
+}
+
+/**
+ * Bounded, UI-safe projection of a Pi AgentToolResult/ToolResultMessage.
+ *
+ * Arbitrary details are deliberately not forwarded. The only accepted details
+ * payload is Kady's validated, versioned scientific-result envelope.
+ */
+export function toolResultFields(raw: unknown, sandboxRoot = ""): ToolResultFields {
+  const record =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : undefined;
+  const content = Array.isArray(record?.content) ? record.content : [];
+  const images: ToolResultImage[] = [];
+  let imagesTruncated = 0;
+  for (const part of content) {
+    if (!part || typeof part !== "object" || (part as { type?: unknown }).type !== "image") {
+      continue;
+    }
+    const data = (part as { data?: unknown }).data;
+    const mimeType = (part as { mimeType?: unknown }).mimeType;
+    if (
+      typeof data !== "string" ||
+      !data ||
+      typeof mimeType !== "string" ||
+      !TOOL_RESULT_IMAGE_MIME.has(mimeType) ||
+      base64Bytes(data) > MAX_TOOL_RESULT_IMAGE_BYTES ||
+      images.length >= MAX_TOOL_RESULT_IMAGES
+    ) {
+      imagesTruncated++;
+      continue;
+    }
+    images.push({ data, mimeType });
+  }
+
+  const scientificResult = scientificResultFromDetails(record?.details);
+  return {
+    result: relativizeSandboxPaths(cap(raw), sandboxRoot),
+    ...(scientificResult
+      ? {
+          scientificResult: relativizeSandboxPaths(
+            scientificResult,
+            sandboxRoot,
+          ),
+        }
+      : {}),
+    ...(images.length > 0 ? { images } : {}),
+    ...(imagesTruncated > 0 ? { imagesTruncated } : {}),
+  };
+}
+
+/** Calls a tool made itself (codemode scripts calling MCP or other tools)
+ *  carry the calling tool's id; the model-issued calls have none. */
+function parentField(ev: object): { parentToolCallId?: string } {
+  const parent = (ev as { parentToolCallId?: unknown }).parentToolCallId;
+  return typeof parent === "string" ? { parentToolCallId: parent } : {};
+}
+
+/** Returns a client frame for an event, or null to skip it.
+ *  `sandboxRoot` (when provided) relativizes absolute sandbox paths in tool
+ *  args so the UI shows `de_analysis.py` rather than the full host path. */
+export function toClientFrame(
+  ev: AgentSessionEvent,
+  sandboxRoot = "",
+): ClientFrame | null {
+  switch (ev.type) {
+    case "agent_start":
+      return { type: "agent_start" };
+    case "agent_end":
+      return { type: "agent_end" };
+    case "turn_start":
+      return { type: "turn_start" };
+    case "turn_end": {
+      const usage = (ev.message as { usage?: unknown }).usage;
+      return { type: "turn_end", usage };
+    }
+    case "message_start": {
+      const role = (ev.message as { role?: string }).role;
+      // User content marks the exact point a steered message was delivered
+      // into the run, so the client can split the transcript there.
+      if (role === "user") {
+        return { type: "message_start", role, content: userMessageText(ev.message) };
+      }
+      // Extension-injected messages (supervisor requests, watchdog findings,
+      // completion notices) carry their type and a bounded detail set.
+      if (role === "custom") return customMessageFrame(ev.message as CustomMessageLike, sandboxRoot);
+      return { type: "message_start", role };
+    }
+    case "compaction_end": {
+      if (ev.aborted || !ev.result) return null;
+      // One code path client-side: a compaction renders as a system card.
+      return customMessageFrame(
+        {
+          customType: "compaction",
+          content: "Context compacted",
+          details: { tokensBefore: ev.result.tokensBefore, reason: ev.reason },
+        },
+        sandboxRoot,
+      );
+    }
+    case "message_end":
+      return { type: "message_end", role: (ev.message as { role?: string }).role };
+    case "message_update": {
+      const a = ev.assistantMessageEvent;
+      if (a.type === "text_delta") return { type: "text_delta", delta: a.delta };
+      if (a.type === "thinking_delta") return { type: "thinking_delta", delta: a.delta };
+      if (a.type === "error") {
+        // Pi's `reason` is only "error" | "aborted"; the provider's own words
+        // live on the failed assistant message. Dropping them left every
+        // provider failure — refusal, content filter, upstream 5xx — looking
+        // like the same opaque "Model error (error)".
+        const detail = a.error?.errorMessage?.trim();
+        return {
+          type: "error",
+          message: detail ? `Model error: ${detail}` : `Model error (${a.reason})`,
+          reason: a.reason,
+        };
+      }
+      return null;
+    }
+    case "tool_execution_start":
+      return {
+        type: "tool_start",
+        toolCallId: ev.toolCallId,
+        toolName: ev.toolName,
+        args: relativizeSandboxPaths(ev.args, sandboxRoot),
+        ...skillFieldFor(ev.toolName, ev.args, sandboxRoot),
+        ...parentField(ev),
+      };
+    case "tool_execution_update":
+      return { type: "tool_update", toolCallId: ev.toolCallId, toolName: ev.toolName, ...parentField(ev) };
+    case "tool_execution_end":
+      return {
+        type: "tool_end",
+        toolCallId: ev.toolCallId,
+        toolName: ev.toolName,
+        isError: ev.isError,
+        ...toolResultFields(ev.result, sandboxRoot),
+        ...parentField(ev),
+      };
+    case "queue_update":
+      return { type: "queue_update", steering: ev.steering, followUp: ev.followUp };
+    case "auto_retry_start":
+      return { type: "retry", attempt: ev.attempt, max: ev.maxAttempts };
+    default:
+      return null;
+  }
+}

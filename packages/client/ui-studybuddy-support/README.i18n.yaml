@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-studybuddy-support/README.md
+/:
+  en: 509d55e9d5d4560e
+  zh: ac952b42b48555d9
+/deepseek-ai-dsh-client-ui-studybuddy-support:
+  en: 35d76d85112c5bcd
+  zh: 35d76a4a394883e8
+/deepseek-ai-dsh-client-ui-studybuddy-support/use-this-package:
+  en: b4deb88c13cc9a9d
+  zh: 5fd8d8a64e9e01b1
+/deepseek-ai-dsh-client-ui-studybuddy-support/model-experience:
+  en: 242cab33160a792f
+  zh: 3af8458e2df8a2a5
+/deepseek-ai-dsh-client-ui-studybuddy-support/known-limitations:
+  en: c5bd507876f5553c
+  zh: ce901d54a31013db
+/deepseek-ai-dsh-client-ui-studybuddy-support/implementation:
+  en: 3e8f7f62bbed4595
+  zh: 96d421e3ef494f85

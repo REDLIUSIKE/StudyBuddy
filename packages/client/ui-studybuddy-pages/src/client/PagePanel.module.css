@@ -1,0 +1,2 @@
+.panel{display:flex;flex-direction:column;height:100%;min-height:0;color:var(--dsw-alias-text-primary);background:var(--dsw-alias-bg-base);}
+.surface{flex:1;min-height:0;}

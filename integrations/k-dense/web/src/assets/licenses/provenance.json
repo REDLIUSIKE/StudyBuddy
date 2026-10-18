@@ -1,0 +1,8 @@
+{
+  "checkedDate": "2026-10-15",
+  "typoJsVersion": "1.3.2",
+  "typoJsLicenseUrl": "https://raw.githubusercontent.com/cfinke/Typo.js/master/license.txt",
+  "typoJsLicenseSha256": "d36ddbbca5451e2799557c158305096ed88f0fa1f32f5542130954528cd61602",
+  "dictionaryNoticeSource": "web/node_modules/typo-js/dictionaries/en_US/README.md",
+  "dictionaryNoticeSha256": "2a7e8d8ae9e8facc84818546ae2a8d83aec5e9c80a675ff789acd1c338b53b3d"
+}

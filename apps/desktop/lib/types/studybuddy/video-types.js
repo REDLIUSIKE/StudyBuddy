@@ -1,0 +1,2 @@
+export const VIDEO_IPC = { available: 'studybuddy:video-available', acquire: 'studybuddy:video-acquire', release: 'studybuddy:video-release', theme: 'studybuddy:video-theme', visible: 'studybuddy:video-visible', invalid: 'studybuddy:video-invalid', guestAction: 'studybuddy:video-guest-action', action: 'studybuddy:video-action', acknowledgeReference: 'studybuddy:video-reference-ack' };
+//# sourceMappingURL=video-types.js.map

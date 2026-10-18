@@ -1,0 +1,54 @@
+{
+  "darwin:en-US": {
+    "menu": [
+      { "label": "About StudyBuddy", "role": "about" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "StudyBuddy",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  },
+  "darwin:zh-CN": {
+    "menu": [
+      { "label": "关于 StudyBuddy", "role": "about" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "StudyBuddy",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  },
+  "win32:zh-CN": {
+    "menu": [
+      { "label": "关于 StudyBuddy" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "StudyBuddy",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  },
+  "win32:en-US": {
+    "menu": [
+      { "label": "About StudyBuddy" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "StudyBuddy",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  }
+}

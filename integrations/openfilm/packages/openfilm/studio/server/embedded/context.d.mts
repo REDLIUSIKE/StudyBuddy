@@ -1,0 +1,14 @@
+import type { IncomingMessage } from 'node:http';
+import type { EmbeddedVideoOptions } from './domain.mjs';
+import type {VideoPathAdmissions} from './path-admissions.mjs';
+export type VideoStudioContext = Pick<EmbeddedVideoOptions, 'workspaceRoot' | 'stateRoot' | 'guestAuthorization' | 'capabilities' | 'renderRuntime' | 'scopeForRoot' | 'projectSignalForRoot' | 'projectRelocated'> & { signal: AbortSignal;pathAdmissions?:VideoPathAdmissions };
+export function currentStudioContext(): VideoStudioContext | undefined;
+export function withStudioContext<T>(context: VideoStudioContext | undefined, callback: () => T): T;
+export function withStudioProject<T>(root:string,callback:()=>T):T|Promise<Awaited<T>>;
+export function studioProjectSignal(root:string):AbortSignal|undefined;
+export function waitForStudioProjectWork(context:VideoStudioContext,root?:string):Promise<void>;
+export function bindStudioContext<T extends (...args: any[]) => any>(callback: T): T;
+export function withStudioEdit<T>(root: string, callback: () => Promise<T>): Promise<T>;
+export function waitForStudioEdits(context: VideoStudioContext): Promise<void>;
+export function assertStudioPath(path: string, root?: string): string;
+export function hasFilmAuthorization(req: IncomingMessage, context?: VideoStudioContext): boolean;

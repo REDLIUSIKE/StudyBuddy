@@ -1,0 +1,280 @@
+/**
+ * K-Dense BYOK backend (TypeScript, Pi SDK).
+ *
+ * Replaces the Python FastAPI + Google ADK server. Boots Fastify, applies the
+ * same project-scoping contract the frontend expects (X-Project-Id header /
+ * ?project query / kady-project cookie), and registers the route plugins.
+ */
+import "./env.ts";
+import { registerSubagentRoutes } from "./api/subagents.ts";
+import { registerSubagentMeterRoutes } from "./api/subagent-meter.ts";
+import fastifyCors from "@fastify/cors";
+import multipart from "@fastify/multipart";
+import Fastify, { type FastifyRequest } from "fastify";
+import { DEFAULT_PROJECT_ID, HOST, PORT, modalConfigured } from "./config.ts";
+import { isCorsOriginAllowed, isExposedBind } from "./cors.ts";
+import { registerRequestGuard } from "./request-guard.ts";
+import { ensureAuthToken, redactAuthFromUrl, registerAuth } from "./auth.ts";
+import { ensureProjectExists, getProject, listProjects } from "./projects.ts";
+import { recoverSubagentUsage } from "./agent/subagent-meter.ts";
+import { withActiveProject } from "./scope.ts";
+import { registerProjectRoutes } from "./api/projects.ts";
+import { registerSessionRoutes } from "./api/sessions.ts";
+import { registerOfficeRoutes } from "./api/office.ts";
+import { registerSandboxRoutes } from "./api/sandbox.ts";
+import { registerSkillRoutes } from "./api/skills.ts";
+import { registerPromptRoutes } from "./api/prompts.ts";
+import { registerAutomationRoutes } from "./api/automation.ts";
+import { setScheduleActivityListener } from "./agent/subagent-bridge.ts";
+import { bootSchedulerSessions, configureScheduler, onScheduleActivity, startSchedulerTick } from "./agent/scheduler.ts";
+import { registerSystemRoutes } from "./api/system.ts";
+import { registerMcpRoutes } from "./api/mcp.ts";
+import { registerCredentialRoutes } from "./api/credentials.ts";
+import { registerAppSettingsRoutes } from "./api/app-settings.ts";
+import { registerAgentRoutes } from "./api/agents.ts";
+import { registerSpeechRoutes } from "./api/speech.ts";
+import { registerModalRoutes } from "./api/modal.ts";
+import { registerModelProviderRoutes } from "./api/model-providers.ts";
+import { setSessionObserver } from "./agent/session-registry.ts";
+import { attachSessionObserver } from "./agent/session-observer.ts";
+import { registerNextExperimentRoutes } from "./api/next-experiments.ts";
+import { registerEvidencePackageRoutes } from "./api/evidence-packages.ts";
+import { registerNotebookMemoryRoutes } from "./api/notebook-memory.ts";
+import { registerNotebookResearchRoutes } from "./api/notebook-research.ts";
+import { registerNotebookRobustnessRoutes } from "./api/notebook-robustness.ts";
+import { notebookRobustness } from "./agent/notebook-robustness.ts";
+import { startAutomaticSkillSync } from "./agent/skills-sync.ts";
+import { modalJobManager } from "./modal/manager.ts";
+import { syncHelperVenv } from "./helpers-env.ts";
+import { configureHttpProxy } from "./http-proxy.ts";
+
+function readCookie(req: FastifyRequest, name: string): string | undefined {
+  const raw = req.headers.cookie;
+  if (!raw) return undefined;
+  for (const part of raw.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) continue;
+    if (part.slice(0, idx).trim() === name) {
+      return decodeURIComponent(part.slice(idx + 1).trim());
+    }
+  }
+  return undefined;
+}
+
+function resolveProjectId(req: FastifyRequest): string {
+  const header = req.headers["x-project-id"];
+  const fromHeader = Array.isArray(header) ? header[0] : header;
+  const q = (req.query as Record<string, unknown> | undefined)?.project;
+  const candidates: (string | undefined)[] = [
+    fromHeader != null ? String(fromHeader) : undefined,
+    q != null ? String(q) : undefined,
+    readCookie(req, "kady-project"),
+  ];
+  for (const c of candidates) {
+    if (c && c.trim()) return c.trim();
+  }
+  return DEFAULT_PROJECT_ID;
+}
+
+export async function buildApp() {
+  const app = Fastify({
+    logger: {
+      level: process.env.LOG_LEVEL ?? "info",
+      serializers: {
+        // Fastify's default, minus the access token a URL may carry.
+        req: (req) => ({
+          method: req.method,
+          url: redactAuthFromUrl(req.url),
+          host: req.host,
+          remoteAddress: req.ip,
+          remotePort: req.socket?.remotePort,
+        }),
+      },
+    },
+    // Inline image attachments ride the JSON run body as base64 (up to 12 ×
+    // 5MB, see agent/prompt-images.ts); Fastify's default 1MB limit would
+    // reject them.
+    bodyLimit: 96 * 1024 * 1024,
+  });
+
+  // Before CORS: a refused Host/Origin must not reach any handler, and a
+  // preflight from a foreign page is refused outright (request-guard.ts).
+  registerRequestGuard(app);
+
+  await app.register(fastifyCors, {
+    origin: (origin, cb) => {
+      cb(null, isCorsOriginAllowed(origin));
+    },
+    credentials: true,
+    exposedHeaders: ["ETag", "X-Project-Fallback", "X-Content-SHA256", "X-Office-Read-Only", "X-Kady-Auth"],
+  });
+
+  // After CORS so a 401 still carries the headers the UI needs to read it.
+  registerAuth(app);
+
+  await app.register(multipart, { limits: { fileSize: 1024 * 1024 * 1024 } });
+
+  // Binary/unknown request bodies (e.g. PUT /sandbox/file) → raw Buffer.
+  // JSON and text/plain keep their built-in parsers; multipart is handled above.
+  app.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => done(null, body));
+
+  // Project scope: resolve the active project and run the rest of the request
+  // lifecycle inside its AsyncLocalStorage context. Calling `done` inside
+  // withActiveProject keeps the store active for downstream hooks + handler.
+  app.addHook("onRequest", (req, reply, done) => {
+    let projectId = resolveProjectId(req);
+    try {
+      // Only the default project is created on demand. An unknown id here is
+      // a stale header (e.g. an in-flight poll for a just-deleted project) —
+      // creating it would silently resurrect the deleted project.
+      if (projectId !== DEFAULT_PROJECT_ID && !getProject(projectId)) {
+        // Reads degrade to the default project (with a header so the client
+        // can notice and re-sync), but a write must never land in a project
+        // the caller did not ask for: that silently moves a chat, an upload or
+        // a spend record into someone else's workspace.
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          reply.code(404).send({
+            detail: `Unknown project: ${projectId}`,
+            reason: "unknown_project",
+          });
+          return;
+        }
+        reply.header("X-Project-Fallback", projectId);
+        projectId = DEFAULT_PROJECT_ID;
+      }
+      ensureProjectExists(projectId);
+    } catch (err) {
+      // Failure to open a known project (permissions, unavailable storage,
+      // malformed paths) must not turn an intended edit into a default-project
+      // edit. The same rule as the unknown-project branch applies here.
+      if ((req.method !== "GET" && req.method !== "HEAD") || projectId === DEFAULT_PROJECT_ID) {
+        req.log.error({ err, projectId }, "could not establish requested project scope");
+        reply.code(503).send({
+          detail: `Could not open project: ${projectId}`,
+          reason: "project_unavailable",
+        });
+        return;
+      }
+      reply.header("X-Project-Fallback", projectId);
+      projectId = DEFAULT_PROJECT_ID;
+      try {
+        ensureProjectExists(projectId);
+      } catch (fallbackError) {
+        done(fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError)));
+        return;
+      }
+    }
+    withActiveProject(projectId, () => done());
+  });
+
+  app.get("/health", async () => ({ status: "ok" }));
+  app.get("/config", async () => ({ modal_configured: modalConfigured() }));
+
+  // Adopt turns that Pi extensions start on an idle session (supervisor
+  // requests, scheduled-run notices) as streamed, ledgered Kady runs.
+  setSessionObserver((ctx) => attachSessionObserver({ ...ctx, log: app.log }));
+
+  await registerProjectRoutes(app);
+  await registerSessionRoutes(app);
+  await registerNotebookResearchRoutes(app);
+  await registerNotebookMemoryRoutes(app);
+  await registerEvidencePackageRoutes(app);
+  await registerNextExperimentRoutes(app);
+  await registerNotebookRobustnessRoutes(app);
+  await registerSandboxRoutes(app);
+  await registerOfficeRoutes(app);
+  await registerSkillRoutes(app);
+  await registerPromptRoutes(app);
+  await registerAutomationRoutes(app);
+  await registerSystemRoutes(app);
+  await registerMcpRoutes(app);
+  await registerCredentialRoutes(app);
+  await registerAppSettingsRoutes(app);
+  await registerAgentRoutes(app);
+  await registerSubagentMeterRoutes(app);
+  await registerSubagentRoutes(app);
+  await registerSpeechRoutes(app);
+  await registerModalRoutes(app);
+  await registerModelProviderRoutes(app);
+
+  // Reattach durable jobs after routes are available. Recovery schedules
+  // active jobs in the background and immediately reconciles any terminal job
+  // whose accounting write was interrupted by a prior shutdown.
+  await modalJobManager.recoverAllProjects();
+  await notebookRobustness.recoverAll();
+  for (const project of listProjects()) {
+    try { recoverSubagentUsage(project.id); }
+    catch (error) { app.log.error({ err: error, projectId: project.id }, "Specialist accounting recovery failed; new child requests remain blocked until repaired"); }
+  }
+
+  return app;
+}
+
+// Called only by the admitted standalone CLI entry.
+export async function startStandalone() {
+  // A rejected promise nobody awaited must not take every chat tab down with
+  // it (Node's default is to exit). Specific sites still handle their own
+  // failures; this is the backstop, and it logs rather than exits.
+  process.on("unhandledRejection", (reason) => {
+    console.error("[server] unhandled promise rejection", reason);
+  });
+  // Owner-only files when started without the launcher (which sets this for
+  // both services): project data and keys stay private on shared hosts.
+  if (process.platform !== "win32" && !process.env.KADY_LAUNCHER) {
+    const configured = process.env.KADY_UMASK?.trim();
+    process.umask(configured && /^[0-7]{3,4}$/.test(configured) ? parseInt(configured, 8) : 0o077);
+  }
+  // Before anything makes an outbound request: Node's fetch ignores
+  // HTTP_PROXY/HTTPS_PROXY on its own, so a proxied network would otherwise
+  // only be used by the child `pi` processes that run subagents.
+  const proxy = configureHttpProxy();
+  const tokenSuppliedAtBoot = (process.env.KADY_AUTH_TOKEN?.trim().length ?? 0) >= 16;
+  syncHelperVenv(); // best-effort; previews degrade gracefully if it fails
+  const app = await buildApp();
+  // Durable pi-subagents schedules fire from a resident session per project;
+  // open those hosts now and keep the budget hold reconciled (not in
+  // buildApp: tests must not open Pi sessions).
+  configureScheduler({ log: app.log });
+  setScheduleActivityListener((projectId) => onScheduleActivity(projectId));
+  void bootSchedulerSessions().then((started) => {
+    if (started.length) app.log.info({ projects: started }, "scheduler sessions opened");
+  });
+  startSchedulerTick();
+  if (proxy.enabled) {
+    app.log.info(
+      { httpProxy: proxy.httpProxy, httpsProxy: proxy.httpsProxy, noProxy: proxy.noProxy },
+      "routing outbound HTTP through the configured proxy",
+    );
+  }
+  await app
+    .listen({ port: PORT, host: HOST })
+    .then((addr) => {
+      app.log.info(`kady-server listening on ${addr}`);
+      const token = ensureAuthToken();
+      if (isExposedBind()) {
+        app.log.warn(
+          `KADY_HOST=${HOST} exposes the Kady API beyond this machine. Anyone who can ` +
+            "reach this port can run the agent (a shell as your user), read project " +
+            "data and change credentials" +
+            (token
+              ? "; an access token is required for every request."
+              : ", and KADY_REQUIRE_AUTH=0 has disabled the access token.") +
+            " Prefer the default 127.0.0.1 and an SSH tunnel.",
+        );
+      }
+      // The launcher prints its own UI link carrying the token; a backend
+      // started on its own says where to find it.
+      if (token && !process.env.KADY_LAUNCHER) {
+        // Like Jupyter: printed once to the terminal, never into the JSON log.
+        console.error(
+          `\n  Kady access token required. Open the UI with:\n` +
+            `    <ui-url>/#kady-token=${tokenSuppliedAtBoot ? "<your KADY_AUTH_TOKEN>" : token}\n`,
+        );
+      }
+      startAutomaticSkillSync(app.log);
+    })
+    .catch((err) => {
+      app.log.error(err);
+      process.exit(1);
+    });
+}

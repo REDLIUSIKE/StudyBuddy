@@ -1,0 +1,63 @@
+/** Copy owned by the generated-image result below a completed reply. */
+export const MEDIA_NS = 'studybuddy-media'
+export const en = {
+  'image.alt': 'Generated image',
+  'image.actionFailed': 'Unable to add this image. Try again when the chat is ready.',
+  'image.open': 'View generated image',
+  'image.download': 'Download image',
+  'image.failed': 'Image preview unavailable',
+  'image.retry': 'Retry',
+  'image.close': 'Close image',
+  'tool.image': 'Generate image',
+  'tool.video': 'Generate video',
+  'tool.status': 'Generation progress',
+  'tool.media': 'Media generation',
+  'task.queued': 'Waiting to generate',
+  'task.in_progress': 'Generating',
+  'task.completed': 'Completed',
+  'task.failed': 'Generation failed',
+  'task.unknown': 'Result unconfirmed; check the original request',
+  'task.incomplete': 'Generation incomplete; check the original request',
+  'task.processing': 'Processing',
+  'task.queryFailed': 'Unable to check the result. Reopen this conversation later.',
+  'image.loadFailed': 'Unable to load the image. Reopen this conversation.',
+  'video.loadFailed': 'Unable to load the video. Reopen this conversation.',
+  'video.download': 'Download video',
+  'project.open': 'Open project',
+  'project.opening': 'Opening…',
+  'project.unavailable': 'Project unavailable. Reattach it in this conversation.',
+} as const
+export type MediaKey = keyof typeof en
+export const zh: Record<MediaKey, string> = {
+  'image.alt': '生成的图片',
+  'image.actionFailed': '暂时无法添加图片，请在对话准备好后重试。',
+  'image.open': '查看生成的图片',
+  'image.download': '下载图片',
+  'image.failed': '图片暂时无法加载',
+  'image.retry': '重试',
+  'image.close': '关闭图片',
+  'tool.image': '生成图片',
+  'tool.video': '生成视频',
+  'tool.status': '生成进度',
+  'tool.media': '媒体生成',
+  'task.queued': '等待生成',
+  'task.in_progress': '正在生成',
+  'task.completed': '已完成',
+  'task.failed': '生成失败',
+  'task.unknown': '结果待确认，请查询原请求',
+  'task.incomplete': '未完成生成，请查询原请求状态',
+  'task.processing': '正在处理',
+  'task.queryFailed': '暂时无法查询生成结果，可稍后重新打开此对话。',
+  'image.loadFailed': '图片暂时无法加载，可重新打开此对话。',
+  'video.loadFailed': '视频暂时无法加载，可重新打开此对话。',
+  'video.download': '下载视频',
+  'project.open': '打开项目',
+  'project.opening': '正在打开…',
+  'project.unavailable': '项目暂不可用，请在对话中重新绑定。',
+}
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** Saved generated-image previews and actions. */
+    'studybuddy-media': MediaKey
+  }
+}

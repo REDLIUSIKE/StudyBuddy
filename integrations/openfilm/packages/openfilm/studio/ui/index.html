@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyBuddy · 剪视频</title>
+<link rel="icon" type="image/png" href="/src/assets/studybuddy-icon.png">
+<script>
+  /* the theme before the first paint, so the wrong one never flashes: light unless the person chose another */
+  (function () {
+    var t = 'light';
+    try { t = localStorage.getItem('studybuddy.video.theme') || 'light'; } catch (e) {}
+    if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+  })();
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

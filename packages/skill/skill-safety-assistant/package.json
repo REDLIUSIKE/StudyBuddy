@@ -1,0 +1,37 @@
+{
+  "name": "@deepseek-ai/dsh-skill-safety-assistant",
+  "description": "Closed native skill safety requests and provider dispatch for StudyBuddy",
+  "version": "1.0.8",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" },
+    "./types": { "types": "./lib/types/types.d.ts", "default": "./lib/types/types.js" },
+    "./errors": { "types": "./lib/types/errors.d.ts", "default": "./lib/types/errors.js" },
+    "./provider": { "types": "./lib/types/provider.d.ts", "default": "./lib/provider.js" },
+    "./tools": { "types": "./lib/types/tools.d.ts", "default": "./lib/tools.js" },
+    "./skills": { "types": "./lib/types/skills.d.ts", "default": "./lib/skills.js" },
+    "./wire": { "types": "./lib/types/wire.d.ts", "default": "./lib/wire.js" },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": ["lib/index.js", "lib/provider.js", "lib/tools.js", "lib/skills.js", "lib/wire.js", "lib/types/**/*.d.ts", "lib/types/**/*.js", "assets/*/SKILL.md"],
+  "license": "MIT",
+  "peerDependencies": { "@deepseek-ai/cordis": "workspace:~" },
+  "dependencies": { "zod": "^4.4.3" },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-agent": "workspace:*",
+    "@deepseek-ai/dsh-brand": "workspace:*",
+    "@deepseek-ai/dsh-session": "workspace:*",
+    "@deepseek-ai/dsh-llm": "workspace:*",
+    "@deepseek-ai/dsh-tools": "workspace:*",
+    "@deepseek-ai/dsh-user-questions": "workspace:*",
+    "@deepseek-ai/dsh-system-prompt": "workspace:*",
+    "@deepseek-ai/dsh-scope": "workspace:*",
+    "@deepseek-ai/dsh-skill": "workspace:*",
+    "@deepseek-ai/dsh-workspace": "workspace:*"
+  }
+}

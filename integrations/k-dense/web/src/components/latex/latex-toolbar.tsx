@@ -1,0 +1,320 @@
+"use client";
+import { researchText } from "@/lib/research-i18n";
+
+
+import { cn } from "@/lib/utils";
+import {
+  AlertTriangleIcon,
+  BoldIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CrosshairIcon,
+  ItalicIcon,
+  ListTreeIcon,
+  LoaderCircleIcon,
+  MessageCircleIcon,
+  PlayIcon,
+  PlusIcon,
+  SpellCheckIcon,
+  SparklesIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+export type Engine = "pdflatex" | "xelatex" | "lualatex";
+export type LatexViewMode = "source" | "split" | "pdf";
+
+export const ENGINES: { id: Engine; label: string }[] = [
+  { id: "pdflatex", label: "pdfLaTeX" },
+  { id: "xelatex", label: "XeLaTeX" },
+  { id: "lualatex", label: "LuaLaTeX" },
+];
+
+export type SnippetAction =
+  | { kind: "wrap"; before: string; after: string }
+  | { kind: "block"; text: string };
+
+const BLOCK_SNIPPETS: { label: string; text: string }[] = [
+  {
+    label: researchText("Figure"),
+    text: "\\begin{figure}[htbp]\n  \\centering\n  \\includegraphics[width=0.8\\linewidth]{}\n  \\caption{}\n  \\label{fig:}\n\\end{figure}\n",
+  },
+  {
+    label: researchText("Table"),
+    text: "\\begin{table}[htbp]\n  \\centering\n  \\caption{}\n  \\label{tab:}\n  \\begin{tabular}{lcc}\n    \\toprule\n     &  &  \\\\\n    \\midrule\n     &  &  \\\\\n    \\bottomrule\n  \\end{tabular}\n\\end{table}\n",
+  },
+  { label: researchText("Equation"), text: "\\begin{equation}\n  \n  \\label{eq:}\n\\end{equation}\n" },
+  { label: researchText("Itemize"), text: "\\begin{itemize}\n  \\item \n\\end{itemize}\n" },
+  { label: researchText("Enumerate"), text: "\\begin{enumerate}\n  \\item \n\\end{enumerate}\n" },
+];
+
+export interface LatexToolbarProps {
+  compiling: boolean;
+  saving: boolean;
+  saved: boolean;
+  isDirty: boolean;
+  engine: Engine;
+  onEngineChange: (e: Engine) => void;
+  onCompile: () => void;
+  onSave: () => void;
+  onDiscard: () => void;
+  errorCount: number;
+  warningCount: number;
+  hasPdf: boolean;
+  previewStale: boolean;
+  compileFailed: boolean;
+  editingLocked: boolean;
+  viewMode: LatexViewMode;
+  onViewModeChange: (mode: LatexViewMode) => void;
+  onAiEdit: () => void;
+  hasLog: boolean;
+  logOpen: boolean;
+  onToggleLog: () => void;
+  autoCompile: boolean;
+  onToggleAutoCompile: () => void;
+  wordCount: number;
+  modKey: string;
+  onSnippet: (action: SnippetAction) => void;
+  outlineOpen: boolean;
+  onToggleOutline: () => void;
+  spellcheck: boolean;
+  onToggleSpellcheck: () => void;
+  syncAvailable: boolean;
+  onJumpToPdf: () => void;
+  onAskKady: () => void;
+}
+
+export function LatexToolbar(p: LatexToolbarProps) {
+  const [insertOpen, setInsertOpen] = useState(false);
+  const insertRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!insertOpen) return;
+    const close = (e: MouseEvent) => {
+      if (!insertRef.current?.contains(e.target as Node)) setInsertOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [insertOpen]);
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-1.5">
+      <button
+        onClick={p.onCompile}
+        disabled={p.compiling || p.editingLocked}
+        title={researchText("{0}Enter — save and compile", [p.modKey])}
+        className={cn(
+          "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+          p.compiling
+            ? "bg-muted text-muted-foreground"
+            : "bg-emerald-600 text-white hover:bg-emerald-700",
+        )}
+      >
+        {p.compiling ? (
+          <LoaderCircleIcon className="size-3.5 animate-spin" />
+        ) : (
+          <PlayIcon className="size-3.5" />
+        )}
+        {p.compiling ? researchText("Compiling…") : researchText("Compile")}
+      </button>
+
+      <select
+        aria-label={researchText("LaTeX engine")}
+        value={p.engine}
+        disabled={p.compiling}
+        onChange={(e) => p.onEngineChange(e.target.value as Engine)}
+        className="rounded-md border bg-background px-2 py-1 text-xs text-foreground outline-none"
+      >
+        {ENGINES.map((e) => (
+          <option key={e.id} value={e.id}>
+            {e.label}
+          </option>
+        ))}
+      </select>
+
+      <label
+        className="flex cursor-pointer items-center gap-1 text-[10px] text-muted-foreground"
+        title={researchText("Compile automatically after each save")}
+      >
+        <input
+          type="checkbox"
+          checked={p.autoCompile}
+          onChange={p.onToggleAutoCompile}
+          className="size-3"
+        />
+        {researchText("Compile on save")}</label>
+
+      <div className="h-4 w-px bg-border" />
+
+      {/* Quick inserts */}
+      <button
+        onClick={() => p.onSnippet({ kind: "wrap", before: "\\textbf{", after: "}" })}
+        disabled={p.editingLocked}
+        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title={researchText("Bold")}
+      >
+        <BoldIcon className="size-3.5" />
+      </button>
+      <button
+        onClick={() => p.onSnippet({ kind: "wrap", before: "\\emph{", after: "}" })}
+        disabled={p.editingLocked}
+        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title={researchText("Emphasis")}
+      >
+        <ItalicIcon className="size-3.5" />
+      </button>
+      <button
+        onClick={() => p.onSnippet({ kind: "wrap", before: "$", after: "$" })}
+        disabled={p.editingLocked}
+        className="rounded p-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+        title={researchText("Inline math")}
+      >
+        $
+      </button>
+      <div ref={insertRef} className="relative">
+        <button
+          onClick={() => setInsertOpen((v) => !v)}
+          disabled={p.editingLocked}
+          className="flex items-center gap-0.5 rounded p-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          title={researchText("Insert block")}
+        >
+          <PlusIcon className="size-3.5" />
+          <ChevronDownIcon className="size-3" />
+        </button>
+        {insertOpen && (
+          <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-md border bg-background shadow-lg">
+            {BLOCK_SNIPPETS.map((s) => (
+              <button
+                key={s.label}
+                onClick={() => {
+                  p.onSnippet({ kind: "block", text: s.text });
+                  setInsertOpen(false);
+                }}
+                className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={p.onToggleOutline}
+        className={cn(
+          "rounded p-1 transition-colors hover:bg-muted",
+          p.outlineOpen ? "text-foreground" : "text-muted-foreground",
+        )}
+        title={researchText("Toggle outline")}
+      >
+        <ListTreeIcon className="size-3.5" />
+      </button>
+
+      <button
+        onClick={p.onToggleSpellcheck}
+        className={cn(
+          "rounded p-1 transition-colors hover:bg-muted",
+          p.spellcheck ? "text-foreground" : "text-muted-foreground",
+        )}
+        title={researchText("Toggle spell check")}
+      >
+        <SpellCheckIcon className="size-3.5" />
+      </button>
+
+      <button
+        onClick={p.onJumpToPdf}
+        disabled={!p.syncAvailable}
+        className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+        title={p.syncAvailable ? researchText("Jump to PDF (SyncTeX)") : researchText("SyncTeX unavailable — compile first")}
+      >
+        <CrosshairIcon className="size-3.5" />
+      </button>
+
+      <button
+        onClick={p.onAiEdit}
+        disabled={p.editingLocked || p.compiling || p.saving}
+        title={researchText("Edit selected source ({0}K)", [p.modKey])}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 disabled:opacity-40 dark:text-violet-400"
+      >
+        <SparklesIcon className="size-3.5" /> {" "}{researchText("Edit with AI")}</button>
+
+      <button
+        onClick={p.onAskKady}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 transition-colors hover:bg-violet-500/10 dark:text-violet-400"
+        title={researchText("Ask Kady about this document in chat")}
+      >
+        <MessageCircleIcon className="size-3.5" /> {" "}{researchText("Ask Kady")}</button>
+
+      {/* Status */}
+      {(p.errorCount > 0 || p.warningCount > 0) && !p.compiling && (
+        <button
+          onClick={p.onToggleLog}
+          className={cn(
+            "flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+            p.errorCount > 0
+              ? "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+              : "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40",
+          )}
+        >
+          <AlertTriangleIcon className="size-3.5" />
+          {p.errorCount > 0
+            ? researchText("{0} error{1}", [p.errorCount, p.errorCount !== 1 ? "s" : ""])
+            : researchText("{0} warning{1}", [p.warningCount, p.warningCount !== 1 ? "s" : ""])}
+        </button>
+      )}
+      {p.hasPdf && !p.compiling && (
+        <span className={cn("flex items-center gap-1 text-xs", p.previewStale || p.compileFailed ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+          {p.previewStale || p.compileFailed ? <AlertTriangleIcon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
+          {p.compileFailed ? researchText("Last successful PDF") : p.previewStale ? researchText("PDF out of date") : researchText("PDF ready")}
+        </span>
+      )}
+
+      <div className="flex-1" />
+      <div role="group" aria-label={researchText("LaTeX view")} className="flex overflow-hidden rounded-md border text-[11px]">
+        {(["source", "split", "pdf"] as const).map((mode) => (
+          <button key={mode} aria-pressed={p.viewMode === mode} onClick={() => p.onViewModeChange(mode)} className={cn("px-2 py-1", p.viewMode === mode ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50")}>
+            {mode === "pdf" ? "PDF" : mode === "source" ? researchText("Source") : researchText("Split")}
+          </button>
+        ))}
+      </div>
+
+      <span className="text-[10px] tabular-nums text-muted-foreground/70">
+        {p.wordCount.toLocaleString()} {" "}{researchText("words")}</span>
+
+      {p.hasLog && (
+        <button
+          onClick={p.onToggleLog}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted"
+        >
+          {p.logOpen ? <ChevronDownIcon className="size-3.5" /> : <ChevronUpIcon className="size-3.5" />}
+          {researchText("Log")}</button>
+      )}
+
+      <div className="h-4 w-px bg-border" />
+
+      <div
+        className={cn(
+          "size-2 rounded-full transition-colors",
+          p.isDirty ? "bg-amber-500" : "bg-muted-foreground/30",
+        )}
+      />
+      <span className="font-mono text-[10px] text-muted-foreground/60">
+        {p.modKey}{researchText("S save ·")}{" "}{p.modKey}{researchText("↵ compile")}</span>
+
+      <button
+        onClick={p.onSave}
+        disabled={!p.isDirty || p.saving || p.compiling || p.editingLocked}
+        className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground transition-opacity disabled:opacity-40"
+      >
+        {p.saved ? <CheckIcon className="size-3" /> : null}
+        {p.saving ? researchText("Saving…") : p.saved ? researchText("Saved!") : researchText("Save")}
+      </button>
+
+      <button
+        onClick={p.onDiscard}
+        className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {researchText("Close")}</button>
+    </div>
+  );
+}

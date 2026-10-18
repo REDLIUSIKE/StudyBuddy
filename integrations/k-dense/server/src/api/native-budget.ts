@@ -1,0 +1,9 @@
+import {createHash} from 'node:crypto';import type {FastifyInstance} from 'fastify';
+import {currentProjectId} from '../scope.ts';import type {NativeProjectBudget} from '../runtime/native-project-budget.ts';
+const etag=(value:unknown)=>'"'+createHash('sha256').update(JSON.stringify(value)).digest('hex')+'"';
+export async function registerNativeBudgetRoutes(app:FastifyInstance,budget:NativeProjectBudget,current:()=>boolean){
+ const assert=()=>{if(!current())throw Error('RESEARCH_CONTEXT_REVOKED');};
+ app.get('/research/budget',async(_req,reply)=>{assert();const id=currentProjectId(),settings=budget.settings(id);reply.header('Cache-Control','no-store').header('ETag',etag(settings));try{const summary=await budget.state(id);assert();return {settings,summary,availability:'ready'};}catch(error){assert();if((error as Error).message!=='RESEARCH_BUDGET_USAGE_UNAVAILABLE')throw error;return {settings,summary:null,availability:'unavailable'};}});
+ app.put('/research/budget',async(req,reply)=>{assert();const input=req.body;if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).join(',')!=='limitCny'||!('limitCny'in input))return reply.code(400).send({detail:'RESEARCH_BUDGET_LIMIT_INVALID'});const id=currentProjectId(),previous=budget.settings(id);if(req.headers['if-match']!==etag(previous))return reply.code(412).send({detail:'RESEARCH_BUDGET_SETTING_CHANGED'});try{const settings=await budget.save(id,input.limitCny,previous.limitCny);assert();reply.header('Cache-Control','no-store').header('ETag',etag(settings));return {settings};}catch(error){if((error as Error).message==='RESEARCH_BUDGET_SETTING_CHANGED')return reply.code(412).send({detail:'RESEARCH_BUDGET_SETTING_CHANGED'});if((error as Error).message==='RESEARCH_BUDGET_LIMIT_INVALID')return reply.code(400).send({detail:'RESEARCH_BUDGET_LIMIT_INVALID'});throw error;}});
+}
+

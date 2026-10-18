@@ -1,0 +1,187 @@
+"use client";
+
+/**
+ * Sub-agent settings API client. Agents are per active project (apiFetch
+ * scopes by X-Project-Id) and live in the project's sandbox/.pi/agents/*.md.
+ * "builtin" agents ship inside the pi-subagents package and are read-only;
+ * saving a project agent with the same name customizes (shadows) the builtin.
+ */
+
+import { apiFetch } from "@/lib/projects";
+
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+
+export interface AgentFile {
+  name: string;
+  description: string;
+  source: "project" | "builtin";
+  enabled?: boolean;
+  model?: string;
+  thinking?: string;
+  tools?: string;
+  systemPromptMode?: "append" | "replace";
+  inheritProjectContext?: boolean;
+  inheritSkills?: boolean;
+  /** pi-subagents per-agent persistent memory (`MEMORY.md` injected each run). */
+  memory?: AgentMemory;
+  /** Frontmatter keys the UI doesn't model; preserved on save. */
+  extra?: Record<string, unknown>;
+  systemPrompt: string;
+  /** Checks other agents' work; covered by Settings → Defaults → Verifier model (read-only). */
+  verifier?: boolean;
+  /** The verifier model Kady currently routes this specialist to (read-only). */
+  verifierModel?: string;
+}
+
+export interface AgentMemory {
+  scope: "project" | "user";
+  path: string;
+}
+
+export type AgentPatch = Omit<AgentFile, "name" | "source">;
+
+export interface AgentMemoryFile {
+  memory: AgentMemory;
+  exists: boolean;
+  content: string;
+  limits: { lines: number; bytes: number };
+}
+
+export async function getAgentMemory(name: string): Promise<AgentMemoryFile> {
+  const res = await apiFetch(`/agents/${encodeURIComponent(name)}/memory`);
+  const data = (await res.json().catch(() => null)) as (AgentMemoryFile & { detail?: string }) | null;
+  if (!res.ok || !data) throw new Error(data?.detail || `getAgentMemory ${res.status}`);
+  return data;
+}
+
+export async function saveAgentMemory(name: string, content: string): Promise<void> {
+  const res = await apiFetch(`/agents/${encodeURIComponent(name)}/memory`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(data?.detail || `saveAgentMemory ${res.status}`);
+  }
+}
+
+export async function clearAgentMemory(name: string): Promise<void> {
+  const res = await apiFetch(`/agents/${encodeURIComponent(name)}/memory`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(data?.detail || `clearAgentMemory ${res.status}`);
+  }
+}
+
+export async function getAgents(): Promise<AgentFile[]> {
+  const res = await apiFetch("/agents");
+  if (!res.ok) throw new Error(`getAgents ${res.status}`);
+  const data = (await res.json()) as { agents?: AgentFile[] };
+  return data.agents ?? [];
+}
+
+export async function saveAgent(name: string, patch: AgentPatch): Promise<AgentFile> {
+  const res = await apiFetch(`/agents/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  const data = (await res.json().catch(() => null)) as
+    | { agent?: AgentFile; detail?: string }
+    | null;
+  if (!res.ok || !data?.agent) {
+    throw new Error(data?.detail || `saveAgent ${res.status}`);
+  }
+  return data.agent;
+}
+
+export async function deleteAgent(name: string): Promise<void> {
+  const res = await apiFetch(`/agents/${encodeURIComponent(name)}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    const data = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(data?.detail || `deleteAgent ${res.status}`);
+  }
+}
+
+export async function restoreDefaultAgents(): Promise<string[]> {
+  const res = await apiFetch("/agents/restore-defaults", { method: "POST" });
+  const data = (await res.json().catch(() => null)) as
+    | { restored?: string[]; detail?: string }
+    | null;
+  if (!res.ok) throw new Error(data?.detail || `restoreDefaultAgents ${res.status}`);
+  return data?.restored ?? [];
+}
+
+export async function setAgentEnabled(name: string, enabled: boolean): Promise<void> {
+  const action = enabled ? "enable" : "disable";
+  const res = await apiFetch(`/agents/${encodeURIComponent(name)}/${action}`, { method: "POST" });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(data?.detail || `setAgentEnabled ${res.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// pi-subagents watchdog (Settings → Project → Specialists → Watchdog)
+// ---------------------------------------------------------------------------
+
+export type WatchdogSeverity = "concern" | "blocker";
+
+export interface WatchdogSettings {
+  enabled: boolean;
+  /** `provider/model`; empty = inherit the chat's model. */
+  model: string;
+  thinking: string;
+  cadenceEveryNTools: number | null;
+  severityThreshold: WatchdogSeverity;
+  children: boolean;
+  watchdogMd: boolean;
+  stalemateRepeats: number;
+  /** True when the host meters watchdog model requests. */
+  metered: boolean;
+}
+
+export async function getWatchdogSettings(): Promise<WatchdogSettings> {
+  const res = await apiFetch("/watchdog");
+  if (!res.ok) throw new Error(`getWatchdogSettings ${res.status}`);
+  return (await res.json()) as WatchdogSettings;
+}
+
+export async function saveWatchdogSettings(
+  patch: Partial<Omit<WatchdogSettings, "metered">>,
+): Promise<WatchdogSettings> {
+  const res = await apiFetch("/watchdog", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  const data = (await res.json().catch(() => null)) as (WatchdogSettings & { detail?: string }) | null;
+  if (!res.ok || !data) throw new Error(data?.detail || `saveWatchdogSettings ${res.status}`);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Default model for specialists (project `subagents.defaultModel`)
+// ---------------------------------------------------------------------------
+
+/** `null` = specialists without their own model inherit the chat's model. */
+export async function getSpecialistDefaultModel(): Promise<string | null> {
+  const res = await apiFetch("/agents/defaults");
+  if (!res.ok) throw new Error(`getSpecialistDefaultModel ${res.status}`);
+  const data = (await res.json()) as { defaultModel?: string | null };
+  return data.defaultModel ?? null;
+}
+
+export async function saveSpecialistDefaultModel(defaultModel: string | null): Promise<string | null> {
+  const res = await apiFetch("/agents/defaults", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ defaultModel }),
+  });
+  const data = (await res.json().catch(() => null)) as
+    | { defaultModel?: string | null; detail?: string }
+    | null;
+  if (!res.ok) throw new Error(data?.detail || `saveSpecialistDefaultModel ${res.status}`);
+  return data?.defaultModel ?? null;
+}

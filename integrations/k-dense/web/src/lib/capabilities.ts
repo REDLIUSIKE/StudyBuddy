@@ -1,0 +1,363 @@
+"use client";
+
+/**
+ * Skills capability client for the Settings hub.
+ *
+ * Two dimensions of scoping. Project scope is implicit — `apiFetch` sends
+ * `X-Project-Id`. Skill scope is explicit: `project` (this project's sandbox) or
+ * `global` (the user-level Pi agent dir, shared by every project and inherited
+ * by subagent child processes). Enabling/disabling relocates the skill on disk
+ * server-side so it (dis)appears from agent discovery on the next session.
+ */
+import { apiFetch } from "@/lib/projects";
+
+export type SkillScope = "project" | "global";
+
+/** Where a skill came from, which decides what "update" means for it. */
+export type SkillOrigin = "catalogue" | "registry" | "local";
+
+export interface SkillInfo {
+  id: string;
+  name: string;
+  description: string;
+  /** Pi's `disable-model-invocation`: hidden from the model's skills index, runs only via `/skill:<name>`. */
+  disableModelInvocation?: boolean;
+  origin?: SkillOrigin;
+  /**
+   * Recorded source for a skill installed from somewhere other than the
+   * catalogue, or for a catalogue skill taken from a repo other than K-Dense's.
+   */
+  source?: string;
+  ref?: string;
+}
+
+/**
+ * A SKILL.md the loader complained about. `loaded: false` means it is installed
+ * but unparseable, so it appears in neither list here nor to the agent.
+ */
+export interface SkillProblem {
+  name: string;
+  state: "enabled" | "disabled";
+  loaded: boolean;
+  message: string;
+}
+
+export interface SkillSyncCounts {
+  added: number;
+  updated: number;
+  unchanged: number;
+  preserved: number;
+  archived: number;
+}
+
+export interface SkillSyncStatus {
+  repo: string;
+  branch: string;
+  upstreamCommit: string | null;
+  catalogueDigest: string | null;
+  lastCheckedAt: string | null;
+  updatesAvailable: string[];
+  customized: string[];
+  orphaned: string[];
+  archived: string[];
+  removed: string[];
+  lastResult: SkillSyncCounts | null;
+  syncing: boolean;
+}
+
+export interface SkillsListing {
+  scope: SkillScope;
+  enabled: SkillInfo[];
+  disabled: SkillInfo[];
+  problems: SkillProblem[];
+  /**
+   * Names also installed in the other scope. Pi resolves project skills first
+   * and skill-name collisions are first-wins, so a project skill wins over a
+   * global one — worth saying out loud, since the loser is simply inert.
+   */
+  shadowed: string[];
+  sync?: SkillSyncStatus;
+}
+
+export const EMPTY_SKILL_SYNC_STATUS: SkillSyncStatus = {
+  repo: "K-Dense-AI/scientific-agent-skills",
+  branch: "main",
+  upstreamCommit: null,
+  catalogueDigest: null,
+  lastCheckedAt: null,
+  updatesAvailable: [],
+  customized: [],
+  orphaned: [],
+  archived: [],
+  removed: [],
+  lastResult: null,
+  syncing: false,
+};
+
+function scopeQuery(scope: SkillScope | undefined, separator = "?"): string {
+  return scope === "global" ? `${separator}scope=global` : "";
+}
+
+/** Read `detail` from an error response, falling back to a status message. */
+async function failure(res: Response, label: string): Promise<Error> {
+  const data = (await res.json().catch(() => null)) as { detail?: string } | null;
+  return new Error(data?.detail || `${label} ${res.status}`);
+}
+
+export async function getAllSkills(scope?: SkillScope): Promise<SkillsListing> {
+  const res = await apiFetch(`/skills/all${scopeQuery(scope)}`);
+  if (!res.ok) throw new Error(`getAllSkills ${res.status}`);
+  const data = (await res.json()) as Partial<SkillsListing>;
+  return {
+    scope: data.scope ?? scope ?? "project",
+    enabled: data.enabled ?? [],
+    disabled: data.disabled ?? [],
+    problems: data.problems ?? [],
+    shadowed: data.shadowed ?? [],
+    sync: data.sync ?? EMPTY_SKILL_SYNC_STATUS,
+  };
+}
+
+export async function syncSkills(): Promise<void> {
+  const res = await apiFetch("/skills/sync", { method: "POST" });
+  if (!res.ok) throw await failure(res, "syncSkills");
+}
+
+export async function updateSkillFromUpstream(
+  name: string,
+  scope?: SkillScope,
+): Promise<void> {
+  const res = await apiFetch(
+    `/skills/${encodeURIComponent(name)}/update${scopeQuery(scope)}`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await failure(res, "updateSkillFromUpstream");
+}
+
+export interface SkillUpdateCheck {
+  name: string;
+  updateAvailable: boolean;
+}
+
+export async function checkSkillUpdate(
+  name: string,
+  scope?: SkillScope,
+): Promise<SkillUpdateCheck> {
+  const res = await apiFetch(
+    `/skills/${encodeURIComponent(name)}/check-update${scopeQuery(scope)}`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await failure(res, "checkSkillUpdate");
+  return (await res.json()) as SkillUpdateCheck;
+}
+
+export async function setSkillEnabled(
+  name: string,
+  enabled: boolean,
+  scope?: SkillScope,
+): Promise<void> {
+  const action = enabled ? "enable" : "disable";
+  const res = await apiFetch(
+    `/skills/${encodeURIComponent(name)}/${action}${scopeQuery(scope)}`,
+    { method: "POST" },
+  );
+  if (!res.ok) throw await failure(res, "setSkillEnabled");
+}
+
+export async function getSkillSource(name: string, scope?: SkillScope): Promise<string> {
+  const res = await apiFetch(
+    `/skills/${encodeURIComponent(name)}/source${scopeQuery(scope)}`,
+  );
+  if (!res.ok) throw new Error(`getSkillSource ${res.status}`);
+  const data = (await res.json()) as { content: string };
+  return data.content;
+}
+
+export async function saveSkillSource(
+  name: string,
+  content: string,
+  scope?: SkillScope,
+): Promise<void> {
+  const res = await apiFetch(
+    `/skills/${encodeURIComponent(name)}/source${scopeQuery(scope)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    },
+  );
+  if (!res.ok) throw await failure(res, "saveSkillSource");
+}
+
+export interface SkillRemoval {
+  name: string;
+  disposition: "archived" | "deleted";
+}
+
+export async function removeSkill(
+  name: string,
+  scope?: SkillScope,
+): Promise<SkillRemoval> {
+  const res = await apiFetch(`/skills/${encodeURIComponent(name)}${scopeQuery(scope)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw await failure(res, "removeSkill");
+  return (await res.json()) as SkillRemoval;
+}
+
+export async function createSkill(input: {
+  name: string;
+  description?: string;
+  scope?: SkillScope;
+}): Promise<{ name: string }> {
+  const res = await apiFetch("/skills/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await failure(res, "createSkill");
+  return (await res.json()) as { name: string };
+}
+
+export interface PreviewedSkill {
+  name: string;
+  description: string;
+  files: number;
+  source?: string;
+  installed: boolean;
+  conflictsWith?: SkillScope;
+}
+
+export interface SkillSourcePreview {
+  source: string;
+  ref?: string;
+  stagingKey: string;
+  /** Echoed back on install so the user gets exactly the skills they reviewed. */
+  stagingToken: string;
+  skills: PreviewedSkill[];
+  problems: { name: string; message: string }[];
+}
+
+export async function previewSkillSource(input: {
+  source: string;
+  ref?: string;
+  scope?: SkillScope;
+}): Promise<SkillSourcePreview> {
+  const res = await apiFetch("/skills/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await failure(res, "previewSkillSource");
+  return (await res.json()) as SkillSourcePreview;
+}
+
+export async function installSkills(input: {
+  source: string;
+  ref?: string;
+  names: string[];
+  scope?: SkillScope;
+  stagingToken?: string;
+  replace?: boolean;
+  /** Required: the server rejects an install that has not been acknowledged. */
+  acknowledged: boolean;
+}): Promise<{ installed: string[]; conflicts: string[] }> {
+  const res = await apiFetch("/skills/install", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await failure(res, "installSkills");
+  return (await res.json()) as { installed: string[]; conflicts: string[] };
+}
+
+/** `modelInvocable: false` marks the skill user-invoked only (`/skill:<name>`). */
+export async function setSkillModelInvocation(
+  name: string,
+  modelInvocable: boolean,
+  scope?: SkillScope,
+): Promise<{ disableModelInvocation: boolean }> {
+  const res = await apiFetch(
+    `/skills/${encodeURIComponent(name)}/model-invocation${scopeQuery(scope)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: modelInvocable }),
+    },
+  );
+  if (!res.ok) throw await failure(res, "setSkillModelInvocation");
+  return (await res.json()) as { disableModelInvocation: boolean };
+}
+
+// ---------------------------------------------------------------------------
+// Prompt templates (`/name args` in the composer)
+// ---------------------------------------------------------------------------
+
+export type PromptScope = "project" | "global";
+
+export interface PromptTemplateInfo {
+  name: string;
+  description: string;
+  argumentHint?: string;
+  scope: PromptScope;
+  shadowed?: boolean;
+  seeded?: boolean;
+}
+
+export interface PromptTemplateSource {
+  name: string;
+  scope: PromptScope;
+  content: string;
+}
+
+function promptScopeQuery(scope: PromptScope | undefined, separator = "?"): string {
+  return scope ? `${separator}scope=${scope}` : "";
+}
+
+/** Merged (project wins) when scope is omitted — what the composer offers. */
+export async function listPromptTemplates(scope?: PromptScope): Promise<PromptTemplateInfo[]> {
+  const res = await apiFetch(`/prompts${promptScopeQuery(scope)}`);
+  if (!res.ok) throw await failure(res, "listPromptTemplates");
+  const data = (await res.json()) as PromptTemplateInfo[];
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getPromptTemplateSource(name: string, scope: PromptScope): Promise<PromptTemplateSource> {
+  const res = await apiFetch(`/prompts/${encodeURIComponent(name)}/source${promptScopeQuery(scope)}`);
+  if (!res.ok) throw await failure(res, "getPromptTemplateSource");
+  return (await res.json()) as PromptTemplateSource;
+}
+
+export async function savePromptTemplateSource(name: string, scope: PromptScope, content: string): Promise<void> {
+  const res = await apiFetch(`/prompts/${encodeURIComponent(name)}/source${promptScopeQuery(scope)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) throw await failure(res, "savePromptTemplateSource");
+}
+
+export async function createPromptTemplate(
+  scope: PromptScope,
+  input: { name: string; description?: string; argumentHint?: string; content?: string },
+): Promise<PromptTemplateSource> {
+  const res = await apiFetch(`/prompts${promptScopeQuery(scope)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await failure(res, "createPromptTemplate");
+  return (await res.json()) as PromptTemplateSource;
+}
+
+export async function deletePromptTemplate(name: string, scope: PromptScope): Promise<void> {
+  const res = await apiFetch(`/prompts/${encodeURIComponent(name)}${promptScopeQuery(scope)}`, { method: "DELETE" });
+  if (!res.ok) throw await failure(res, "deletePromptTemplate");
+}
+
+export async function restoreDefaultPromptTemplates(): Promise<number> {
+  const res = await apiFetch("/prompts/restore-defaults", { method: "POST" });
+  if (!res.ok) throw await failure(res, "restoreDefaultPromptTemplates");
+  const data = (await res.json()) as { restored?: number };
+  return data.restored ?? 0;
+}

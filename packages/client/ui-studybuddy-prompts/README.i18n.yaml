@@ -1,0 +1,34 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-studybuddy-prompts/README.md
+/:
+  en: 35e0a677d31e1dc7
+  zh: cf8ea8862e3e9542
+/studybuddy-prompt-manager:
+  en: 52a00db65a574f8e
+  zh: 1a6d1d6ba8aae8ea
+/studybuddy-prompt-manager/summary:
+  en: e40d616cdc406941
+  zh: 7e8c7666bedcf540
+/studybuddy-prompt-manager/table-of-contents:
+  en: fe1ecb09a73d1c7a
+  zh: ee877c7038f9484f
+/studybuddy-prompt-manager/use-this-package:
+  en: ef4de6429e897d96
+  zh: e36b8cd2e6c533b1
+/studybuddy-prompt-manager/understand-the-implementation:
+  en: 635f17a080f2be38
+  zh: 135eb0c1a7a9c66d
+/studybuddy-prompt-manager/model-experience:
+  en: f75005390e6db566
+  zh: 3f4bfd6855347db4
+/studybuddy-prompt-manager/model-experience/kv-cache-effect:
+  en: ab90a32144088249
+  zh: ac28c7bb485618b6
+/studybuddy-prompt-manager/known-limitations-and-deferred-work:
+  en: 54e39c666f8f3ed0
+  zh: 024d113941c99a20
+/studybuddy-prompt-manager/known-limitations-and-deferred-work/dev-note:
+  en: 04c6589030862913
+  zh: 0fc1fdb2fc5e7a88

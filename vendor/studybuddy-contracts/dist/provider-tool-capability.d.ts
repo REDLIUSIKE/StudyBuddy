@@ -1,0 +1,56 @@
+export declare const CAPABILITY_STATES: readonly ["available", "preparing", "disabled"];
+export declare const CAPABILITY_STABLE_REASONS: readonly ["AVAILABLE", "ADAPTER_MISSING", "RELEASE_MISSING", "RELEASE_BLOCKED", "OFFICIAL_RELEASE_PENDING", "UPSTREAM_MODEL_REDIRECT_IN_EFFECT", "SECRET_UNAVAILABLE", "PRICE_UNAVAILABLE", "FAKE_EVIDENCE_MISSING", "REAL_EVIDENCE_MISSING", "NATIVE_EVIDENCE_MISSING", "CONNECTION_INCOMPATIBLE", "MODEL_RETIRED"];
+export type ProviderId = string;
+export type CapabilityState = (typeof CAPABILITY_STATES)[number];
+export type CapabilityStableReason = (typeof CAPABILITY_STABLE_REASONS)[number];
+export type SecretAuthority = "legacy_env" | "managed_keyring";
+export type IngressProtocol = "openai_responses" | "anthropic_messages";
+export type UpstreamProtocol = "openai_responses" | "anthropic_messages" | "openai_compatible_chat";
+export type ProviderModel = Readonly<{
+    providerModelId: string;
+    providerId: ProviderId;
+    exactUpstreamModelId: string;
+    displayName: string;
+    contextWindow: number;
+    maxOutputTokens: number;
+    capabilityFlags: readonly string[];
+    reviewedSourceDigest: string;
+    revision: number;
+}>;
+export type ToolCapability = Readonly<{
+    toolCapabilityId: string;
+    providerModelId: string;
+    logicalModelId: string;
+    toolId: "codex" | "claude_code";
+    providerId: ProviderId;
+    displayName: string;
+    exactUpstreamModelId: string;
+    scope: "responses:create" | "messages:create";
+    ingressProtocol: IngressProtocol;
+    upstreamProtocol: UpstreamProtocol;
+    originId: string;
+    adapterKey: string;
+    adapterRevision: string | null;
+    manifestSha256: string;
+    platform: Readonly<{
+        state: CapabilityState;
+        reason: CapabilityStableReason;
+        secretAuthority: SecretAuthority;
+        releaseId: string | null;
+        releaseRevision: number | null;
+        priceVersionId: string | null;
+        secretRevision: number | null;
+    }>;
+    userApi: Readonly<{
+        state: CapabilityState;
+        reason: CapabilityStableReason;
+        capabilityRevision: number;
+        verifierRevision: string | null;
+    }>;
+    revision: number;
+}>;
+export type ProviderToolCapability = ToolCapability;
+export declare function parseProviderModels(value: unknown): readonly ProviderModel[];
+export declare function parseProviderToolCapabilities(value: unknown): readonly ProviderToolCapability[];
+export declare function isCanonicalProviderId(value: unknown): value is ProviderId;
+export declare function isCanonicalProviderModelId(value: unknown): value is string;

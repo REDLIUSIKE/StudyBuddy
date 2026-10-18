@@ -1,0 +1,8 @@
+.root { padding: 10px 0; max-width: 720px; }
+.header { display: flex; align-items: center; gap: 14px; font-size: 13px; }
+.status, .model { color: var(--dsw-alias-label-secondary, #737981); font-size: 12px; }
+.model { margin-top: 6px; overflow-wrap: anywhere; }
+.result { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; margin-top: 12px; }
+.result img, .result video { display: block; max-width: 100%; max-height: 520px; border-radius: 10px; object-fit: contain; }
+.result a { font-size: 13px; color: var(--dsw-alias-link-primary, #169647); text-decoration: none; }
+.result a:hover { text-decoration: underline; }

@@ -1,0 +1,54 @@
+import { type NativeToolId, type NativeProtocol } from './native-tools.js';
+import type { NativeToolConnectV2, NativeToolConnectionViewV2 } from './native-tool-connection-v2.js';
+import type { NativeSourceRoute } from './native-user-sources.js';
+export type NativeRememberedChoiceV1 = Readonly<{
+    schemaVersion: 1;
+    toolId: NativeToolId;
+    kind: 'platform' | 'user_source';
+    sourceRef: string | null;
+    sourceRevision: string | null;
+    exactModelId: string;
+    protocol: NativeProtocol;
+    logicalModelId: string | null;
+}>;
+export type NativeUserSourceConnectV3 = Readonly<{
+    schemaVersion: 3;
+    toolId: NativeToolId;
+    sourceRef: string;
+    sourceRevision: string;
+    inventoryRevision: string;
+    exactModelId: string;
+    protocol: NativeProtocol;
+    options: NativeToolConnectV2['options'];
+}>;
+export type NativeUserSourceConnectionViewV3 = Readonly<{
+    schemaVersion: 3;
+    toolId: NativeToolId;
+    state: NativeToolConnectionViewV2['state'];
+    protocol: NativeProtocol;
+    sourceRef: string;
+    sourceRevision: string;
+    inventoryRevision: string;
+    grantRevision: string | null;
+    allowedModelIds: readonly string[];
+    defaultModelId: string | null;
+    appliedModelId: string | null;
+    errorCode: string | null;
+}>;
+export type NativeConnectionUiView = NativeToolConnectionViewV2 | NativeUserSourceConnectionViewV3;
+export type NativeSourceModelCandidateV3 = Readonly<{
+    choiceId: string;
+    displayName: string;
+    sourceName: string;
+    route: NativeSourceRoute;
+    available: boolean;
+    blockReason: string | null;
+    tested: boolean;
+    adapted: boolean;
+    selection: NativeRememberedChoiceV1;
+    request: NativeUserSourceConnectV3;
+}>;
+export declare function parseNativeRememberedChoiceV1(v: unknown): NativeRememberedChoiceV1;
+export declare function parseNativeUserSourceConnectV3(v: unknown): NativeUserSourceConnectV3;
+export declare function parseNativeUserSourceConnectionViewV3(v: unknown): NativeUserSourceConnectionViewV3;
+export declare function parseNativeSourceModelCandidatesV3(v: unknown): NativeSourceModelCandidateV3[];

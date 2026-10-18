@@ -1,0 +1,36 @@
+import type { Context as ClientContext } from '@deepseek-ai/cordis';
+import { type PluginManagerLocaleKey } from './locales.ts';
+declare module '@deepseek-ai/cordis' {
+    interface Context {
+        /** Cross-plugin navigation to the Plugins settings section. */
+        pluginNavigation: {
+            /**
+             * Open a bundle's details without changing the current Session.
+             * An absent bundle displays the plugin list after loading.
+             * @param packageName - npm package name of the bundle.
+             */
+            openBundle(packageName: string): void;
+        };
+    }
+}
+export type { PluginManagerPageProps } from './PluginManagerPage.tsx';
+export type { ConfigLedger, OfficialItem } from './config-ledger.ts';
+export type { PluginManagerFace } from './manager-store.ts';
+export type { PluginManagerLocaleKey } from './locales.ts';
+export type { ConfigPageForm, PluginActivationOwnerProps, PluginAddActionsProps, PluginConfigViewProps, PluginDetailProps, PluginPackageRef, PluginRowRef, PluginsSubject, } from './slot-contract.ts';
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+    interface LocaleNamespaceMap {
+        /** Plugin manager tab copy. */
+        'pluginManager': PluginManagerLocaleKey;
+    }
+}
+/** Dictionary namespace owned by this plugin. */
+export declare const NS = "pluginManager";
+/** Settings navigation and Remote methods; inventory says whether the Host manages a profile. */
+export declare const inject: string[];
+/**
+ * Contribute the Plugins settings section and keep it current on Host changes.
+ * @param ctx - the browser plugin context.
+ */
+export declare function apply(ctx: ClientContext): void;
+//# sourceMappingURL=index.d.ts.map

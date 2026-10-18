@@ -1,0 +1,33 @@
+export const zh = {
+  zhilian: '排行榜', skills: 'Skill 中心', aigc: 'AIGC创作', research: '研究工作台', desktop: '请在 StudyBuddy 桌面客户端中使用',
+  signedOut: '请先登录 StudyBuddy', failed: '页面暂时无法载入，请重试', retry: '重试', loading: '正在载入',
+  nativeUnavailable: '当前项目的原生对话暂不可用，请重新打开项目。',
+  nativeQuestion: '创作助手提问',
+  referenceFailed: '引用未插入，请等待当前发送完成后重新选择。',
+  welcome: '你好，我是 StudyBuddy 创作助手', welcomeTitle: '从一个想法开始',
+  welcomeDescription: '聊聊你的故事、画面或镜头，让我们一起把想法落到画布上。',
+  welcomeHint: '点击填入提示，也可以直接输入，或粘贴图片、视频。', welcomeFill: '填入提示：',
+  welcomeCanvas: '搭建创作画布', welcomeCanvasDescription: '把创意串成清晰的节点流程',
+  welcomeCanvasPrompt: '帮我搭建一个创作画布，先和我确认需要的节点与流程。',
+  welcomeStory: '梳理故事分镜', welcomeStoryDescription: '拆解故事，安排画面与镜头',
+  welcomeStoryPrompt: '帮我把故事整理成分镜，先和我确认故事内容、时长和画面风格。',
+  welcomeImage: '生成图片素材', welcomeImageDescription: '为角色和场景寻找视觉方向',
+  welcomeImagePrompt: '帮我生成图片素材，先和我确认画面内容、风格和使用的模型。',
+}
+export type PageLocaleKey = keyof typeof zh
+export const en: Record<PageLocaleKey, string> = {
+  zhilian: 'Leaderboards', skills: 'Skill center', aigc: 'AIGC creation', research: 'Research workspace', desktop: 'Use this page in the StudyBuddy desktop app',
+  signedOut: 'Sign in to StudyBuddy first', failed: 'The page could not load. Try again', retry: 'Retry', loading: 'Loading',
+  nativeUnavailable: 'The native conversation is unavailable. Open the project again.',
+  nativeQuestion: 'Creative assistant question',
+  referenceFailed: 'The reference was not inserted. Wait for the current submission and select it again.',
+  welcome: 'Hello, I’m your StudyBuddy creative assistant', welcomeTitle: 'Start with an idea',
+  welcomeDescription: 'Share a story, image, or shot, and bring your idea onto the canvas.',
+  welcomeHint: 'Choose a suggestion to fill the draft, type directly, or paste images and videos.', welcomeFill: 'Fill draft: ',
+  welcomeCanvas: 'Build a creative canvas', welcomeCanvasDescription: 'Connect your idea into a clear node workflow',
+  welcomeCanvasPrompt: 'Help me build a creative canvas. First confirm the nodes and workflow with me.',
+  welcomeStory: 'Outline a storyboard', welcomeStoryDescription: 'Break down the story into images and shots',
+  welcomeStoryPrompt: 'Help me turn my story into a storyboard. First confirm the story, duration, and visual style with me.',
+  welcomeImage: 'Create image assets', welcomeImageDescription: 'Explore visual directions for characters and scenes',
+  welcomeImagePrompt: 'Help me create image assets. First confirm the content, style, and model with me.',
+}

@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/skill/skill-safety-assistant/README.md
+/:
+  en: c5cdda396799b690
+  zh: 9ceac897ac59cc5d
+/deepseek-ai-dsh-skill-safety-assistant:
+  en: bcbc08c798de0e86
+  zh: 0996bb6a0e71087a
+/deepseek-ai-dsh-skill-safety-assistant/summary:
+  en: d46edb6402460718
+  zh: 0a35ad423dcca144
+/deepseek-ai-dsh-skill-safety-assistant/table-of-contents:
+  en: b563e4ec4727d0de
+  zh: 9b11c4ea8d5405cd
+/deepseek-ai-dsh-skill-safety-assistant/use-this-package:
+  en: 1901261e06133643
+  zh: b9eaa4801e794fe4
+/deepseek-ai-dsh-skill-safety-assistant/understand-the-implementation:
+  en: 58ca7f6a4baaa1b4
+  zh: 8b6b2ba77b97e3cb
+/deepseek-ai-dsh-skill-safety-assistant/further-exploration:
+  en: 4d692a58ced0a853
+  zh: e9d8719def1b4458
+/deepseek-ai-dsh-skill-safety-assistant/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-skill-safety-assistant/model-experience/no-direct-model-context:
+  en: 11330a3eaa3637ca
+  zh: e45fa58e8a4fc69c
+/deepseek-ai-dsh-skill-safety-assistant/model-experience/no-direct-model-context/what-the-model-sees:
+  en: de093dd5ee72b046
+  zh: 84b2096a134e70ca
+/deepseek-ai-dsh-skill-safety-assistant/model-experience/no-direct-model-context/token-effect:
+  en: d607fced6e9188bd
+  zh: b0b45d8cb5bb0441
+/deepseek-ai-dsh-skill-safety-assistant/model-experience/no-direct-model-context/kv-cache-effect:
+  en: 0ec49f6a709d0df3
+  zh: 53415f36af7bbec7
+/deepseek-ai-dsh-skill-safety-assistant/known-limitations-and-deferred-work:
+  en: 4e17ace16a2c3cf8
+  zh: 48bd6b5ef6249ddc
+/deepseek-ai-dsh-skill-safety-assistant/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 86551b5222ba206e

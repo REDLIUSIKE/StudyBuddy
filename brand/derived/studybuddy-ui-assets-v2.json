@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-11",
+  "toolMode": "built-in image_gen, existing-brand edits with transparent_background=true",
+  "useCase": "existing StudyBuddy logo and mascot adaptation",
+  "wordmark": {
+    "path": "brand/derived/studybuddy-desktop-sidebar-wordmark-transparent-v2.png",
+    "finalPrompt": "Edit the existing StudyBuddy logo in image 1 into a compact desktop sidebar wordmark. Image 1 is the EXISTING logo to adapt, image 2 is the exact existing green 硅宝 mascot identity reference. This is an adaptation, NOT a redesign. Keep the existing rounded dark charcoal StudyBuddy lettering, exact spelling and capitalization, and the green friendly B-shaped mascot as the B in Buddy. Preserve its recognizable sprout, large white-and-dark eyes, eyebrows and smiling mouth; keep the same green and yellow brand palette and smooth existing finish. Change only proportions, spacing and small-size clarity: make the letters clearer and less chunky at 20–28 px, keep the mascot only slightly taller than the other letters, reduce the large vertical height of its sprout and decorative yellow marks, and balance letter spacing. The final visible horizontal artwork should be about five times wider than tall to fit a 148 x 30 pixel header slot. Render a very wide tightly fitted horizontal wordmark with minimal transparent margins, crisp clean alpha edges. No extra standalone mascot at the left, no new book symbol, no extra slogan or Chinese text, no background plate, no shadow behind the complete logo, no new brand concept. Actual transparent background. Preserve the original identity precisely.",
+    "copies": [
+      "apps/web/public/brand/sidebar-v2.png",
+      "apps/desktop/renderer/assets/studybuddy-wordmark-v2.png"
+    ]
+  },
+  "appIcon": {
+    "path": "brand/derived/studybuddy-app-icon-transparent-v2.png",
+    "finalPrompt": "Edit this icon: REMOVE the entire white/off-white rounded-square backplate and every background pixel, fringe, rough speckle and border. Keep ONLY the green 硅宝 character exactly as shown, including eyes, eyebrows, smile, two-leaf sprout and the B-shaped body. The oval opening in the bottom of the B must also be fully transparent. True transparent alpha background outside the character and inside that oval opening. Clean smooth antialiased contour, no white halo, no framing shape, no badge, no outline, no shadow or ground plane. Preserve all character details and colors. Fit the complete character into a square app-icon canvas with small even transparent margins so it is legible at 32 px. This is background removal and app-icon fit, not a character redesign.",
+    "copies": [
+      "apps/desktop/resources/icon-windows.png",
+      "apps/desktop/resources/icon.png",
+      "apps/desktop/resources/icon-macos.png",
+      "apps/web/public/favicon.png"
+    ],
+    "constraints": [
+      "existing green 硅宝 mascot",
+      "no border",
+      "no backplate",
+      "transparent background and B opening"
+    ]
+  }
+}

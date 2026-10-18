@@ -1,0 +1,115 @@
+/**
+ * Web boot kernel. It owns only the module system, Cordis loader, and a
+ * framework-free boot page; plugin composition and the renderer handoff are
+ * `bootClient` and `mountClient`. The dynamic UI renderer receives the mount
+ * point after every client entry activates.
+ * @module @deepseek-ai/dsh-client-web/src/boot
+ */
+import { Context } from '@deepseek-ai/cordis';
+import { bootClient } from "./boot-client.js";
+import { BootPage } from "./boot-page.js";
+import { mountClient } from "./mount.js";
+import { getStaticModules } from "./seed.js";
+import { installWindowDragRecall } from "./window-drag/recall.js";
+import './base.css';
+/** Browser boot entry consumed by `apps/web`. */
+export class AppWebEntry {
+    container;
+    seams;
+    page;
+    ctx;
+    stopDragRecall;
+    modules;
+    manifest;
+    /**
+     * Draw the boot page; {@link run} starts the loader.
+     * @param container - Application mount point.
+     * @param seams - Optional module transport replacement.
+     */
+    constructor(container, seams) {
+        this.container = container;
+        this.seams = seams;
+        this.page = new BootPage(container);
+    }
+    /**
+     * Load and activate every client entry, then hand the mount point to the
+     * UI renderer. Plugin failures remain visible on the boot page.
+     * @param onFailure - Optional carrier-owned fatal presentation; keeps the boot page visible.
+     * @returns Resolves after application mount or failure reporting.
+     */
+    async run(onFailure) {
+        try {
+            // Boot-readiness gate: whichever bootstrap applies the injection table
+            // settles this deferred once every row has taken effect — the served
+            // index resolves it in the rendered tail, so the await returns on the
+            // next microtask; an asynchronous bootstrap resolves it after its last
+            // row, or rejects it into the failure rendering below. An absent global
+            // means no bootstrap owns the document and there is nothing to wait for.
+            await globalThis.__DSH_BOOT_READY__?.promise;
+            const win = globalThis;
+            const moduleLoader = win.__ModuleLoader__;
+            if (moduleLoader === undefined) {
+                throw new Error('web boot: window.__ModuleLoader__ bootstrap facade is missing');
+            }
+            // A pre-injected transport (the worker preview page) owns bundle bytes;
+            // its loadBundle is the default and explicit seams still win. The global
+            // is `ClientTransportHooks`, owned by @deepseek-ai/dsh-client-connection;
+            // this structural slice reads one optional member without adding a
+            // package edge.
+            const transport = globalThis.__DSH_TRANSPORT__;
+            this.modules = moduleLoader.create({
+                boot: win.__DSH_BOOT__,
+                staticModules: getStaticModules(),
+                ...transport?.loadBundle === undefined ? {} : { loadBundle: transport.loadBundle },
+                ...this.seams,
+            });
+            this.manifest = this.modules.manifest;
+            const prefetching = this.prefetchImmediateTier();
+            const ctx = new Context();
+            this.ctx = ctx;
+            this.page.setTotal(this.manifest.plugins.length);
+            await prefetching;
+            await bootClient({
+                ctx,
+                modules: this.modules,
+                manifest: this.manifest,
+                onEntryState: (name, state) => {
+                    if (onFailure === undefined || state !== 'failed')
+                        this.page.setState(name, state);
+                },
+            });
+            // The shell owns the one watcher that keeps Electron's window drag rects in
+            // step with the rows that own them (electron#32341), so no chrome row has to
+            // know that trap. It installs before the first mount, so the surface the
+            // renderer draws is the one the first frame measures.
+            this.stopDragRecall = installWindowDragRecall({ document: this.container.ownerDocument });
+            await mountClient(ctx, this.container);
+        }
+        catch (reason) {
+            console.error(reason);
+            if (onFailure !== undefined)
+                onFailure(reason);
+            else
+                this.page.fail(reason instanceof Error ? reason.message : String(reason));
+        }
+    }
+    /** Dispose the client plugin tree and whichever page owns the mount point. */
+    async dispose() {
+        this.stopDragRecall?.();
+        this.stopDragRecall = undefined;
+        const ctx = this.ctx;
+        this.ctx = undefined;
+        if (ctx !== undefined)
+            await ctx.fiber.dispose();
+        this.page.dispose();
+    }
+    /** Prefetch stage-one bundles and their dynamic requests before concurrent plugin imports. */
+    async prefetchImmediateTier() {
+        await Promise.all(this.manifest.plugins
+            .filter(row => row.immediately)
+            .map(row => this.modules.prefetch(row.id).catch((_prefetchError) => {
+            // Prefetch only starts transport early; the Loader import retries and reports this bundle failure.
+        })));
+    }
+}
+//# sourceMappingURL=boot.js.map

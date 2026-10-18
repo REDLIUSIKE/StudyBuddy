@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/llm/llm-studybuddy-builtin/README.md
+/:
+  en: d8f8689aadc435f3
+  zh: d975f2cd45025de2
+/deepseek-ai-dsh-llm-studybuddy-builtin:
+  en: d2c10fc8f017460d
+  zh: aab61d648cde5921
+/deepseek-ai-dsh-llm-studybuddy-builtin/summary:
+  en: 2cea4b115cfba51e
+  zh: 2de35bd72e031aea
+/deepseek-ai-dsh-llm-studybuddy-builtin/table-of-contents:
+  en: b563e4ec4727d0de
+  zh: 8a3286da7928fdd7
+/deepseek-ai-dsh-llm-studybuddy-builtin/use-this-package:
+  en: e645f985bb250924
+  zh: 940ac27e9c541600
+/deepseek-ai-dsh-llm-studybuddy-builtin/understand-the-implementation:
+  en: cf5fceaae540bb2c
+  zh: fc692a990bf8844b
+/deepseek-ai-dsh-llm-studybuddy-builtin/further-exploration:
+  en: 107c68b1beaa45cc
+  zh: 4c934759204555aa
+/deepseek-ai-dsh-llm-studybuddy-builtin/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-llm-studybuddy-builtin/model-experience/exact-conversation-requests:
+  en: dba12176dedd5f7b
+  zh: 12b50098f55b17bb
+/deepseek-ai-dsh-llm-studybuddy-builtin/model-experience/exact-conversation-requests/what-the-model-sees:
+  en: 3132f06822c380f3
+  zh: bea15273df699aa8
+/deepseek-ai-dsh-llm-studybuddy-builtin/model-experience/exact-conversation-requests/token-effect:
+  en: 316a0ee56def27a3
+  zh: d7ee49fedbc91060
+/deepseek-ai-dsh-llm-studybuddy-builtin/model-experience/exact-conversation-requests/kv-cache-effect:
+  en: 54aca387de465b4e
+  zh: efea8267fb0bde74
+/deepseek-ai-dsh-llm-studybuddy-builtin/known-limitations-and-deferred-work:
+  en: f288ca17949efc85
+  zh: a3db71b468d67148
+/deepseek-ai-dsh-llm-studybuddy-builtin/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: fd71ba5e495ef0ef

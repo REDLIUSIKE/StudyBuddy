@@ -1,0 +1,1 @@
+export function loadMcpConfig(options: { agentDir: string; cwd: string; projectTrusted: boolean }): { servers: { name: string; scope: 'project' | 'global'; config: Record<string, unknown> }[]; errors: string[]; autoEnableCodemode?: boolean };

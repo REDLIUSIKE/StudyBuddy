@@ -1,0 +1,8 @@
+version: 1
+scenario: builtin-request-audit
+profile: sdk
+composition: sdk-upload
+recording: authored
+header:
+  class: builtin-request-audit
+  pin: true

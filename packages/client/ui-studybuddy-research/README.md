@@ -1,0 +1,11 @@
+# StudyBuddy research workspace
+
+English | [中文](README.zh.md)
+
+This desktop page composes the original K-Dense workbench with Harness `conversation.content` in its embedded variant. The local document retains its file tree, editors and scientific viewers. Native Session references belong to each selected research project; their Conversation subtrees remain mounted in `shell.overlay` while the keyed main panel supplies geometry. Ordinary chats keep their own references and drafts.
+
+The existing idle preloader prepares the admitted guest. Main owns the original account generation, project paths, local process and private native actions. The guest receives only project-opening, reference, draft and model-control intents. These intents never submit a model request; an occupied native draft is preserved. Account replacement withdraws render targets before releasing references and destroying the guest partition.
+
+The idle right column displays an objective nine-chapter illustrated guide with a chapter directory and translucent previous/next controls. It can render while the local document prepares, within the authenticated account scope. Original interface crops and explanatory illustrations are labelled separately; compact numbered locations sit beneath their subjects and select short explanations, and pictures open in a readable modal. Bottom-edge markers have reserved space outside the image. Images load as chapter-local chunks, outside the startup bundle. Original PNGs live in `src/client/guide-images/`; after replacing an asset, run `node scripts/generate-guide-image-modules.mjs` to regenerate its encoded module. Reading position survives ordinary panel and project switches; account replacement resets it. Hidden readers withdraw their menu and image modal. Opening a project restores its retained native Conversation. Reading the guide does not submit model or service requests. The embedded project overview keeps its text heading and omits the duplicate brand image.
+
+Resource pins identify verified candidates. CLI specialists, advanced raw workflow controls and real OpenRouter Fusion remain separate compatibility work; this package does not establish full scientific workflow parity or paid-service acceptance. See the [execution ledger](../../../../output/studybuddy-k-dense-integration-2026-10-13/implementation/progress.md).

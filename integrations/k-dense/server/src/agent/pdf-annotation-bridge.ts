@@ -1,0 +1,204 @@
+/**
+ * Make the child-only kady-pdf-annotations package available to pi-subagents
+ * and extend package-owned builtin specialist tool allowlists.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import type { ProjectPaths } from "../projects.ts";
+import { subagentsPackageDir } from "./agent-files.ts";
+import { MODAL_TOOL_NAMES } from "./modal-tool.ts";
+import { PDF_ANNOTATION_TOOL_NAMES } from "./pdf-annotation-tool.ts";
+import { reconcileBuiltinTools } from "./builtin-tool-overrides.ts";
+
+export function kadyPdfAnnotationPackageDir(): string {
+  return path.resolve(
+    import.meta.dirname,
+    "..",
+    "..",
+    "pi-packages",
+    "kady-pdf-annotations",
+  );
+}
+
+function isPdfAnnotationSource(entry: unknown): entry is string {
+  return (
+    typeof entry === "string" &&
+    /[/\\]kady-pdf-annotations$/.test(entry.replace(/[/\\]+$/, ""))
+  );
+}
+
+export function seedPdfAnnotationPackage(paths: ProjectPaths): boolean {
+  const dir = path.join(paths.sandbox, ".pi");
+  const settingsPath = path.join(dir, "settings.json");
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(
+      fs.readFileSync(settingsPath, "utf-8"),
+    ) as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return false;
+  }
+  const packageDir = kadyPdfAnnotationPackageDir();
+  const packages = Array.isArray(settings.packages)
+    ? [...settings.packages]
+    : [];
+  const kept = packages.filter(
+    (entry) => !isPdfAnnotationSource(entry) || entry === packageDir,
+  );
+  if (kept.includes(packageDir) && kept.length === packages.length) {
+    return false;
+  }
+  if (!kept.includes(packageDir)) kept.push(packageDir);
+  settings.packages = kept;
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    settingsPath,
+    `${JSON.stringify(settings, null, 2)}\n`,
+    "utf-8",
+  );
+  return true;
+}
+
+function builtinAgentsDir(): string | null {
+  try {
+    return path.join(subagentsPackageDir(), "agents");
+  } catch {
+    return null;
+  }
+}
+
+function parseFrontmatter(
+  file: string,
+): { name?: string; tools?: string[] } {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(file, "utf-8");
+  } catch {
+    return {};
+  }
+  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+  if (!match) return {};
+  const value: { name?: string; tools?: string[] } = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const name = /^name:\s*(.+?)\s*$/.exec(line);
+    if (name) value.name = name[1];
+    const tools = /^tools:\s*(.+?)\s*$/.exec(line);
+    if (tools) {
+      value.tools = tools[1]
+        .split(",")
+        .map((tool) => tool.trim())
+        .filter(Boolean);
+    }
+  }
+  return value;
+}
+
+function unique(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+
+/**
+ * Notebook and Modal bridges run first. Only extend their known generated
+ * shapes; any other existing override is user-owned and remains authoritative.
+ */
+export function seedBuiltinAgentPdfAnnotationTools(
+  paths: ProjectPaths,
+): boolean {
+  const agentsDir = builtinAgentsDir();
+  if (!agentsDir) return false;
+  let files: string[];
+  try {
+    files = fs.readdirSync(agentsDir).filter((file) => file.endsWith(".md"));
+  } catch {
+    return false;
+  }
+
+  const dir = path.join(paths.sandbox, ".pi");
+  const settingsPath = path.join(dir, "settings.json");
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(
+      fs.readFileSync(settingsPath, "utf-8"),
+    ) as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return false;
+  }
+  const subagents =
+    settings.subagents &&
+    typeof settings.subagents === "object" &&
+    !Array.isArray(settings.subagents)
+      ? (settings.subagents as Record<string, unknown>)
+      : {};
+  const overrides =
+    subagents.agentOverrides &&
+    typeof subagents.agentOverrides === "object" &&
+    !Array.isArray(subagents.agentOverrides)
+      ? (subagents.agentOverrides as Record<string, unknown>)
+      : {};
+
+  let changed = false;
+  for (const file of files) {
+    const builtin = parseFrontmatter(path.join(agentsDir, file));
+    if (!builtin.name || !builtin.tools?.length) continue;
+    const existing = overrides[builtin.name];
+    if (
+      existing !== undefined &&
+      (typeof existing !== "object" ||
+        existing === null ||
+        Array.isArray(existing))
+    ) {
+      continue;
+    }
+    const override = (existing ?? {}) as Record<string, unknown>;
+    if ("tools" in override) {
+      if (
+        !Array.isArray(override.tools) ||
+        override.tools.some((tool) => typeof tool !== "string")
+      ) {
+        continue;
+      }
+      const existingTools = override.tools as string[];
+      const base = builtin.tools;
+      const notebook = unique([...base, "notebook"]);
+      const modal = unique([...base, ...MODAL_TOOL_NAMES]);
+      const notebookModal = unique([...notebook, ...MODAL_TOOL_NAMES]);
+      const notebookMemory = unique([...notebook, "notebook_search"]);
+      const notebookMemoryModal = unique([...notebookMemory, ...MODAL_TOOL_NAMES]);
+      const generated = [base, notebook, notebookMemory, modal, notebookModal, notebookMemoryModal].flatMap(
+        (tools) => [
+          tools,
+          unique([...tools, ...PDF_ANNOTATION_TOOL_NAMES]),
+        ],
+      );
+      // Reconciled, not only extended: an override seeded before an upstream
+      // release narrowed this builtin still carries the tools it removed.
+      const next = reconcileBuiltinTools({
+        existing: existingTools,
+        declared: base,
+        add: PDF_ANNOTATION_TOOL_NAMES,
+        shapes: generated,
+      });
+      if (!next) continue;
+      overrides[builtin.name] = { ...override, tools: next };
+      changed = true;
+      continue;
+    }
+    overrides[builtin.name] = {
+      ...override,
+      tools: [...builtin.tools, ...PDF_ANNOTATION_TOOL_NAMES],
+    };
+    changed = true;
+  }
+
+  if (!changed) return false;
+  subagents.agentOverrides = overrides;
+  settings.subagents = subagents;
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    settingsPath,
+    `${JSON.stringify(settings, null, 2)}\n`,
+    "utf-8",
+  );
+  return true;
+}

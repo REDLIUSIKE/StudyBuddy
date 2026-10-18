@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "checkedDate": "2026-10-15",
+  "sourceCss": "web/.next/static/css/15730e9f7c5c55ef.css",
+  "sourceCssSha256": "ad021b6de2d8919ae0ba9dea019aca24d87e3111052aa8ebc23b7d3f30ee1b34",
+  "licenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/OFL.txt",
+  "licenseSha256": "c683bfbcc7e087f5d37a54ef628f10387c451a83ddc459b151403a164ac46c90",
+  "transformation": "Local CSS URLs and variable class names only; font bytes and fallback metrics unchanged",
+  "fonts": [
+    {
+      "file": "f639721981034f88-s.woff2",
+      "bytes": 7252,
+      "sha256": "b7a545bbb08256bd809f11cfe66d88da3e22d169ea4407737b1ef0ec1ed3d791"
+    },
+    {
+      "file": "9766a7e9e2e0ad5a-s.woff2",
+      "bytes": 14900,
+      "sha256": "6129fc8571c3e0cb0a4c41f5160c974a843b055009dc4ad8858bd808e18a2d86"
+    },
+    {
+      "file": "b66cf8e69499582a-s.woff2",
+      "bytes": 7968,
+      "sha256": "f689f638f29fff460a2d5749edb5d5c38d7bef0389f32032d871f23fc6ebb008"
+    },
+    {
+      "file": "aa016aab0e6d1295-s.woff2",
+      "bytes": 16540,
+      "sha256": "58a6b173d5ca1dec92166ea3c6cb1a84a4144556d10928ac14e8e6b40e4787bd"
+    },
+    {
+      "file": "22a5144ee8d83bca-s.p.woff2",
+      "bytes": 29288,
+      "sha256": "9b6f5ff45b278c744b5f379a2c4ecbaf858a842b8eaf82ac8d21b699ca16c608"
+    },
+    {
+      "file": "013b72fa676f92e0-s.woff2",
+      "bytes": 6204,
+      "sha256": "e27f657e38d52887baa3b6b2f812bef93dfdd356f0810e40edd4ee284cc7e9f6"
+    },
+    {
+      "file": "b9408752a0c24fb9-s.woff2",
+      "bytes": 12872,
+      "sha256": "75b3bedbebc35f347c0ae3b416aa871941555357e7b0f83767eb5987875589ed"
+    },
+    {
+      "file": "65f03d54ccadf4a8-s.woff2",
+      "bytes": 5892,
+      "sha256": "d67e4a94ba498635f764ddca7d1ec4271f5642f032eb24b426764480f66f8497"
+    },
+    {
+      "file": "e038a29029a234f2-s.woff2",
+      "bytes": 7728,
+      "sha256": "16e1d48b6dd29eb240aec5db36184eb182933c082cd43de7f35af686d58087d2"
+    },
+    {
+      "file": "2b5b02fc7e511755-s.woff2",
+      "bytes": 14712,
+      "sha256": "745994b5cd950ec201b66526375f057d540847cccfc70f4f24f5f571d26d3923"
+    },
+    {
+      "file": "7d4881bb7e1bf84d-s.p.woff2",
+      "bytes": 23108,
+      "sha256": "5f3d6ad60f29d6cb708414ec6887163d63bf197377ef5417d2483ff31ace6c3b"
+    }
+  ]
+}

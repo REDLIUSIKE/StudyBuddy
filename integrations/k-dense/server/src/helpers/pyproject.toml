@@ -1,0 +1,35 @@
+[project]
+name = "kady-helpers"
+version = "0.1.0"
+description = "Python decoders the Kady backend shells out to for file previews"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "anndata",
+    "h5py",
+    "rdkit",
+    "gemmi",
+    "pyteomics",
+    "lxml",
+    "psims",
+    "pyarrow",
+    "netCDF4",
+    "pydicom",
+    "nibabel",
+    "tifffile",
+    "pillow",
+    "openpyxl",
+    "astropy",
+]
+
+# Resolve binary-only packages (notably RDKit) for every shipped platform.
+# A lock resolved only on Apple Silicon can silently drop Intel Mac support.
+[tool.uv]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64' and python_version == '3.12'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64' and python_version == '3.12'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64' and python_version == '3.12'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_version == '3.12'",
+]

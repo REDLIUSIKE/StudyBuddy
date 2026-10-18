@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "abstract-logging",
+  "version": "2.0.1",
+  "license": "MIT",
+  "packageJsonSha256": "33f6c3a8ec869b76fba4173cd688d1865ae74d746cc3f3b5d85abf9f40ab4038",
+  "checkedDate": "2026-10-15",
+  "sourceCommit": "80dfaef91ee87008f4ed2b6e78921d383bccd406",
+  "readmeSource": "https://raw.githubusercontent.com/jsumners/abstract-logging/80dfaef91ee87008f4ed2b6e78921d383bccd406/Readme.md",
+  "readmeSha256": "e1a86711fb5055c0e66901276b7d2c843554bf5f1dab218c069c8b9d17148e81",
+  "licenseSource": "https://jsumners.mit-license.org/",
+  "licenseSourceBytes": 3707,
+  "licenseSourceSha256": "a0fed8aefb37c428bf2e0c1cabb3bdd6788ad97044bb67762a018d28967fd21a",
+  "licenseSha256": "af128b943225bc9740716e077e7aedae2f1804bce7106c4b28021f2cc24a0ebf",
+  "copyright": "Copyright © 2026 James Sumners <james.sumners@gmail.com>",
+  "note": "The exact version commit and installed npm package omit a LICENSE file and link this author-owned MIT page. This is the page retrieved on the checked date; its current2026 copyright year is not represented as the original release year. Plain text preserves article paragraphs and decodes the page Cloudflare email encoding; raw HTML is archived in official-dependency-licenses."
+}

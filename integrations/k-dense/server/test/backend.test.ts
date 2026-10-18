@@ -1,0 +1,971 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { PROJECTS_ROOT } from "../src/config.ts";
+import {
+  createProject,
+  deleteProject,
+  ensureProjectExists,
+  getProject,
+  listProjects,
+  resolvePaths,
+  updateProject,
+} from "../src/projects.ts";
+import {
+  addTurnUsage,
+  emptySnapshot,
+  isBudgetExceeded,
+  projectCostSummary,
+  recordRun,
+  recordSubagentRun,
+  sessionCostSummary,
+  snapshotDelta,
+  snapshotMax,
+} from "../src/cost/ledger.ts";
+import { billingForProvider } from "../src/cost/billing.ts";
+import {
+  makeSubagentLedgerExtension,
+  pinInheritedChildModels,
+  usageFromSessionFile,
+  workflowCallTargets,
+  workflowScriptTargets,
+} from "../src/agent/subagent-bridge.ts";
+import { setSubagentDefaultModel, writeProjectAgent } from "../src/agent/agent-files.ts";
+import { writePiSettings } from "../src/agent/capability-state.ts";
+import {
+  WEB_ACCESS_TOOLS,
+  SCIENTIFIC_SUMMARY_INSTRUCTIONS,
+  seedWebAccessDefaults,
+  seedWebAccessPackage,
+  trustSandbox,
+  webAccessPackageDir,
+} from "../src/agent/web-access-bridge.ts";
+import { guessMime, isUserVisible } from "../src/sandbox-fs.ts";
+import {
+  listDisabledSkills,
+  listProjectSkills,
+  seedProjectSkills,
+} from "../src/agent/skills.ts";
+import {
+  contextUsageForClient,
+  contextUsageFrame,
+  MAX_TOOL_RESULT_IMAGES,
+  toClientFrame,
+  relativizeSandboxPaths,
+} from "../src/agent/events.ts";
+import { helperPython, HELPERS_DIR } from "../src/helpers-env.ts";
+import { sciHelperFor } from "../src/api/sci-helpers.ts";
+
+function reset(): void {
+  fs.rmSync(PROJECTS_ROOT, { recursive: true, force: true });
+  fs.mkdirSync(PROJECTS_ROOT, { recursive: true });
+}
+
+beforeEach(reset);
+afterAll(() => fs.rmSync(PROJECTS_ROOT, { recursive: true, force: true }));
+
+describe("projects", () => {
+  it("creates, lists, gets, updates, and deletes", () => {
+    const p = createProject({ name: "My Study", tags: ["bio"], spendLimitUsd: 5 });
+    expect(p.id).toMatch(/^my-study-/);
+    expect(p.spendLimitUsd).toBe(5);
+    expect(getProject(p.id)?.name).toBe("My Study");
+
+    updateProject(p.id, { description: "updated", spendLimitUsd: null });
+    expect(getProject(p.id)?.description).toBe("updated");
+    expect(getProject(p.id)?.spendLimitUsd).toBeNull();
+
+    expect(listProjects().some((m) => m.id === p.id)).toBe(true);
+    deleteProject(p.id);
+    expect(getProject(p.id)).toBeNull();
+  });
+
+  it("ensureProjectExists seeds a bare project.json", () => {
+    const paths = ensureProjectExists("default");
+    expect(fs.existsSync(paths.projectJson)).toBe(true);
+    expect(getProject("default")?.name).toBe("Default");
+  });
+
+  it("refuses to delete the default project", () => {
+    ensureProjectExists("default");
+    expect(() => deleteProject("default")).toThrow();
+  });
+
+  it("rejects traversal in resolvePaths", () => {
+    expect(() => resolvePaths("../escape")).toThrow();
+  });
+});
+
+describe("cost ledger + budget", () => {
+  it("records run deltas and aggregates", () => {
+    ensureProjectExists("default");
+    const before = { costUsd: 0, input: 0, output: 0, cacheRead: 0, total: 0 };
+    const after = { costUsd: 0.01, input: 100, output: 20, cacheRead: 0, total: 120 };
+    recordRun({ sessionId: "s1", projectId: "default", model: "openai/gpt-4o-mini", before, after });
+
+    const sess = sessionCostSummary("s1", "default");
+    expect(sess.totalUsd).toBeCloseTo(0.01);
+    expect(sess.totalTokens).toBe(120);
+    expect(sess.entries).toHaveLength(1);
+    expect(sess.agentUsd).toBeCloseTo(0.01);
+
+    const proj = projectCostSummary("default");
+    expect(proj.totalUsd).toBeCloseTo(0.01);
+    expect(proj.sessionCount).toBe(1);
+  });
+
+  it("skips zero-delta runs", () => {
+    ensureProjectExists("default");
+    const z = { costUsd: 0, input: 0, output: 0, cacheRead: 0, total: 0 };
+    expect(recordRun({ sessionId: "s2", projectId: "default", model: "m", before: z, after: z })).toBeNull();
+  });
+
+  it("flags budget exceeded once spend passes the cap", () => {
+    createProject({ name: "Capped", projectId: "capped", spendLimitUsd: 0.005 });
+    recordRun({
+      sessionId: "s1",
+      projectId: "capped",
+      model: "m",
+      before: { costUsd: 0, input: 0, output: 0, cacheRead: 0, total: 0 },
+      after: { costUsd: 0.01, input: 10, output: 5, cacheRead: 0, total: 15 },
+    });
+    const b = isBudgetExceeded("capped");
+    expect(b.exceeded).toBe(true);
+    expect(b.limitUsd).toBe(0.005);
+  });
+
+  it("treats a 0 spend limit as unlimited (not a hard block)", () => {
+    createProject({ name: "Zero", projectId: "zero", spendLimitUsd: 0 });
+    recordRun({
+      sessionId: "s1",
+      projectId: "zero",
+      model: "m",
+      before: { costUsd: 0, input: 0, output: 0, cacheRead: 0, total: 0 },
+      after: { costUsd: 1, input: 10, output: 5, cacheRead: 0, total: 15 },
+    });
+    const b = isBudgetExceeded("zero");
+    expect(b.exceeded).toBe(false);
+    expect(b.limitUsd).toBeNull();
+  });
+
+  it("ledgers subagent spend as a subagent row", () => {
+    ensureProjectExists("default");
+    recordSubagentRun("default", "s9", "openai/gpt-4o-mini", {
+      cost: 0.02,
+      tokens: { input: 50, output: 10, cacheRead: 0, total: 60 },
+    });
+    const sess = sessionCostSummary("s9", "default");
+    expect(sess.subagentUsd).toBeCloseTo(0.02);
+    expect(sess.agentUsd).toBe(0);
+    expect(sess.entries[0].role).toBe("subagent");
+  });
+
+  it("records provider-managed subscription usage without consuming the spend cap", () => {
+    createProject({ name: "Subscription", projectId: "subscription", spendLimitUsd: 0.001 });
+    recordRun({
+      sessionId: "s1",
+      projectId: "subscription",
+      model: "openai-codex/gpt-5.6-sol",
+      before: emptySnapshot(),
+      after: { costUsd: 2.5, input: 1_000, output: 500, cacheRead: 0, total: 1_500 },
+      billing: billingForProvider("openai-codex", "oauth"),
+    });
+
+    const session = sessionCostSummary("s1", "subscription");
+    expect(session.totalUsd).toBe(0);
+    expect(session.listPriceUsd).toBeCloseTo(2.5);
+    expect(session.subscriptionTokens).toBe(1_500);
+    expect(session.entries[0]).toMatchObject({
+      provider: "openai-codex",
+      authType: "oauth",
+      billingMode: "subscription",
+      costUsd: 0,
+      listPriceUsd: 2.5,
+    });
+    expect(isBudgetExceeded("subscription").exceeded).toBe(false);
+  });
+
+  it("counts Anthropic OAuth extra usage toward the spend cap", () => {
+    createProject({ name: "Claude", projectId: "claude", spendLimitUsd: 0.01 });
+    recordRun({
+      sessionId: "s1",
+      projectId: "claude",
+      model: "anthropic/claude-opus-4-8",
+      before: emptySnapshot(),
+      after: { costUsd: 0.02, input: 100, output: 50, cacheRead: 0, total: 150 },
+      billing: billingForProvider("anthropic", "oauth"),
+    });
+    expect(sessionCostSummary("s1", "claude").entries[0]).toMatchObject({
+      billingMode: "metered_oauth",
+      costUsd: 0.02,
+    });
+    expect(isBudgetExceeded("claude").exceeded).toBe(true);
+  });
+
+  it("keeps mixed payg, subscription, and compute totals budget-safe", () => {
+    createProject({ name: "Mixed", projectId: "mixed", spendLimitUsd: 2 });
+    const base = { input: 10, output: 5, cacheRead: 0, total: 15 };
+    recordRun({
+      sessionId: "s1", projectId: "mixed", model: "openrouter/a",
+      before: emptySnapshot(), after: { ...base, costUsd: 1 },
+      billing: billingForProvider("openrouter", "api_key"),
+    });
+    recordRun({
+      sessionId: "s1", projectId: "mixed", model: "github-copilot/a",
+      before: emptySnapshot(), after: { ...base, costUsd: 5 },
+      billing: billingForProvider("github-copilot", "oauth"),
+    });
+    recordRun({
+      sessionId: "s1", projectId: "mixed", model: "modal",
+      role: "compute", before: emptySnapshot(),
+      after: { ...emptySnapshot(), costUsd: 0.5 },
+      billing: billingForProvider("modal"),
+    });
+    const summary = projectCostSummary("mixed");
+    expect(summary.totalUsd).toBeCloseTo(1.5);
+    expect(summary.listPriceUsd).toBeCloseTo(5);
+    expect(summary.committedUsd).toBeCloseTo(1.5);
+    expect(summary.budget.state).toBe("ok");
+  });
+
+  it("excludes run dirs with no ledger entries from sessionCount", () => {
+    const paths = ensureProjectExists("default");
+    recordRun({
+      sessionId: "s1",
+      projectId: "default",
+      model: "m",
+      before: { costUsd: 0, input: 0, output: 0, cacheRead: 0, total: 0 },
+      after: { costUsd: 0.01, input: 100, output: 20, cacheRead: 0, total: 120 },
+    });
+    fs.mkdirSync(path.join(paths.runsDir, "empty-session"), { recursive: true });
+    const proj = projectCostSummary("default");
+    expect(proj.sessionCount).toBe(1);
+  });
+
+  it("snapshot helpers: delta clamps at 0, max combines measurements, turn usage accumulates", () => {
+    const before = { costUsd: 0.5, input: 100, output: 50, cacheRead: 10, total: 160 };
+    // Compaction shrank the stats mid-run: after < before → delta clamps to 0.
+    const shrunk = { costUsd: 0.2, input: 40, output: 20, cacheRead: 0, total: 60 };
+    const delta = snapshotDelta(before, shrunk);
+    expect(delta).toEqual(emptySnapshot());
+
+    // The turn tally still saw the spend; max recovers it.
+    const tally = emptySnapshot();
+    addTurnUsage(tally, {
+      input: 30,
+      output: 12,
+      cacheRead: 5,
+      cacheWrite: 3,
+      cost: { total: 0.04 },
+    });
+    expect(tally.total).toBe(50);
+    const run = snapshotMax(delta, tally);
+    expect(run.costUsd).toBeCloseTo(0.04);
+    expect(run.total).toBe(50);
+  });
+
+  it("sums assistant usage from a child Pi session file", () => {
+    const dir = path.join(PROJECTS_ROOT, "tmp-subagent");
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, "child-session.jsonl");
+    const lines = [
+      JSON.stringify({ type: "session", id: "child" }),
+      JSON.stringify({
+        message: {
+          role: "assistant",
+          provider: "openai-codex",
+          model: "gpt-5.6-sol",
+          usage: { input: 100, output: 40, cacheRead: 20, cacheWrite: 5, cost: { total: 0.03 } },
+        },
+      }),
+      JSON.stringify({ message: { role: "user", content: "hi" } }),
+      JSON.stringify({
+        message: {
+          role: "assistant",
+          provider: "openai-codex",
+          model: "gpt-5.6-sol",
+          usage: { input: 200, output: 60, cacheRead: 0, cacheWrite: 0, cost: { total: 0.05 } },
+        },
+      }),
+      "{not json",
+    ];
+    fs.writeFileSync(file, lines.join("\n") + "\n", "utf-8");
+
+    const usage = usageFromSessionFile(file);
+    expect(usage).not.toBeNull();
+    expect(usage!.cost).toBeCloseTo(0.08);
+    expect(usage!.tokens).toEqual({ input: 300, output: 100, cacheRead: 20, total: 425 });
+    expect(usage!.provider).toBe("openai-codex");
+    expect(usage!.model).toBe("gpt-5.6-sol");
+
+    expect(usageFromSessionFile(path.join(dir, "missing.jsonl"))).toBeNull();
+  });
+});
+
+describe("subagent model inheritance", () => {
+  it("pins the parent provider/model unless a child override is explicit", () => {
+    ensureProjectExists("default");
+    const input: Record<string, unknown> = {
+      tasks: [
+        { agent: "first", task: "a" },
+        { agent: "second", task: "b", model: "openrouter/openai/gpt-5.5" },
+      ],
+    };
+    pinInheritedChildModels(
+      "default",
+      input,
+      {
+        provider: "openai-codex",
+        id: "gpt-5.6-sol",
+      } as Parameters<typeof pinInheritedChildModels>[2],
+    );
+    expect(input.tasks).toEqual([
+      {
+        agent: "first",
+        task: "a",
+        model: "openai-codex/gpt-5.6-sol",
+      },
+      {
+        agent: "second",
+        task: "b",
+        model: "openrouter/openai/gpt-5.5",
+      },
+    ]);
+  });
+
+  // Since pi-subagents 0.43 children are declared inside a workflow script,
+  // so none of them are reachable by walking the tool input; since 0.74 the
+  // script is a ```js workflow block in the reply that issues `workflow: true`.
+  const parent = {
+    provider: "openai-codex",
+    id: "gpt-5.6-sol",
+  } as Parameters<typeof pinInheritedChildModels>[2];
+
+  it("reads agents and models out of a workflowScript", () => {
+    const targets = workflowScriptTargets(
+      `const scan = await runs.run("scan", { agent: "scout", task: "look" });\n` +
+        `return runs.all([{ agent: 'worker', model: "openrouter/openai/gpt-5.5" }]);`,
+    );
+    expect([...targets.agents].sort()).toEqual(["scout", "worker"]);
+    expect([...targets.models]).toEqual(["openrouter/openai/gpt-5.5"]);
+    expect(targets.dynamic).toBe(false);
+  });
+
+  it("flags a computed agent name as dynamic", () => {
+    const targets = workflowScriptTargets(`return runs.run("k", { agent: chosen, task: t })`);
+    expect(targets.agents.size).toBe(0);
+    expect(targets.dynamic).toBe(true);
+  });
+
+  const replyBranch = (toolCallId: string, text: string, calls = 1) => [
+    { type: "message", message: { role: "user", content: [{ type: "text", text: "run it" }] } },
+    {
+      type: "message",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text },
+          ...Array.from({ length: calls }, (_, index) => ({
+            type: "toolCall", id: index === 0 ? toolCallId : `${toolCallId}-${index}`,
+            name: "subagent", arguments: { workflow: true },
+          })),
+        ],
+      },
+    },
+  ];
+  const fenced = (script: string) => "Plan:\n```js workflow\n" + script + "\n```\nLaunching.";
+
+  it("reads a workflow: true script from the reply that issued the call", () => {
+    const script = `return runs.run("main", { agent: "scout", model: "ollama/llama4", task: "a" })`;
+    const sessionManager = { getBranch: () => replyBranch("call-1", fenced(script)) };
+    const targets = workflowCallTargets({ workflow: true }, { toolCallId: "call-1", sessionManager });
+    expect([...targets!.agents]).toEqual(["scout"]);
+    expect([...targets!.models]).toEqual(["ollama/llama4"]);
+    expect(targets!.dynamic).toBe(false);
+
+    // pi-subagents refuses each of these, so none of them may look literal.
+    const unknown = (branch: unknown[], toolCallId = "call-1") =>
+      workflowCallTargets({ workflow: true }, { toolCallId, sessionManager: { getBranch: () => branch } })!.dynamic;
+    expect(unknown(replyBranch("call-1", fenced(script)), "another-call")).toBe(true);
+    expect(unknown(replyBranch("call-1", fenced(script) + "\n" + fenced(script)))).toBe(true);
+    expect(unknown(replyBranch("call-1", fenced(script), 2))).toBe(true);
+    expect(unknown(replyBranch("call-1", "```js workflow\n" + script))).toBe(true);
+    expect(unknown(replyBranch("call-1", "No block, just prose."))).toBe(true);
+    expect(workflowCallTargets({ workflow: true })!.dynamic).toBe(true);
+
+    // A workflow fence quoted inside another fence is documentation, not the script.
+    const quoted = "````md\n```js workflow\nreturn runs.run(\"x\", { agent: \"ghost\" })\n```\n````\n" + fenced(script);
+    expect([...workflowCallTargets({ workflow: true }, {
+      toolCallId: "call-1", sessionManager: { getBranch: () => replyBranch("call-1", quoted) },
+    })!.agents]).toEqual(["scout"]);
+  });
+
+  it("reads a workflow script path relative to the request cwd", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kady-workflow-path-"));
+    fs.mkdirSync(path.join(dir, "ci"));
+    fs.writeFileSync(path.join(dir, "ci", "sweep.js"), `return runs.run("main", { agent: "worker", task: "sweep" })`);
+    expect([...workflowCallTargets({ workflow: "./ci/sweep.js" }, { cwd: dir })!.agents]).toEqual(["worker"]);
+    expect([...workflowCallTargets({ workflow: "./sweep.js", cwd: "ci" }, { cwd: dir })!.agents]).toEqual(["worker"]);
+    expect(workflowCallTargets({ workflow: "./missing.js" }, { cwd: dir })!.dynamic).toBe(true);
+    // A named workflow resource is extension code we cannot read.
+    expect(workflowCallTargets({ workflow: "review" }, { cwd: dir })!.dynamic).toBe(true);
+    // Management calls and structured single-child launches run no script.
+    expect(workflowCallTargets({ action: "list" })).toBeUndefined();
+    expect(workflowCallTargets({ agent: "worker", task: "a" })).toBeUndefined();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("pins the parent model as the workflow-wide child default", () => {
+    ensureProjectExists("default");
+    const input: Record<string, unknown> = {
+      workflowScript: `return runs.run("main", { agent: "scout", task: "a" })`,
+    };
+    pinInheritedChildModels("default", input, parent);
+    expect(input.model).toBe("openai-codex/gpt-5.6-sol");
+
+    const reply: Record<string, unknown> = { workflow: true };
+    const sessionManager = { getBranch: () => replyBranch("call-pin", fenced(`return runs.run("main", { agent: "scout", task: "a" })`)) };
+    pinInheritedChildModels("default", reply, parent, workflowCallTargets(reply, { toolCallId: "call-pin", sessionManager }));
+    expect(reply.model).toBe("openai-codex/gpt-5.6-sol");
+    // Without the reply the script is unknown, and an unknown script is never pinned.
+    const blind: Record<string, unknown> = { workflow: true };
+    pinInheritedChildModels("default", blind, parent);
+    expect(blind.model).toBeUndefined();
+  });
+
+  it("leaves a workflowScript alone when the pin would outrank a child's own model", () => {
+    ensureProjectExists("pin-guard");
+    writeProjectAgent(resolvePaths("pin-guard"), "pinned-specialist", {
+      name: "pinned-specialist",
+      description: "pinned",
+      systemPrompt: "You are pinned.",
+      model: "openrouter/anthropic/claude-sonnet-5",
+    });
+    // A top-level `model` is a per-run override, the strongest rank there is:
+    // pinning one would silently replace every model below it.
+    for (const script of [
+      `return runs.run("main", { agent: "pinned-specialist", task: "a" })`,
+      `return runs.run("main", { agent: "scout", model: "ollama/llama4", task: "a" })`,
+      `return runs.run("main", { agent: pick(), task: "a" })`,
+      `return runs.run("main", { resume: retained, task: "more" })`,
+    ]) {
+      const input: Record<string, unknown> = { workflowScript: script };
+      pinInheritedChildModels("pin-guard", input, parent);
+      expect(input.model).toBeUndefined();
+    }
+  });
+
+  // The pin is a per-run override, which pi-subagents ranks above
+  // `agentOverrides.<name>.model` and `subagents.defaultModel`: pinning over
+  // either would silently discard the model the user chose in Settings.
+  it("does not outrank a model pinned in project settings", () => {
+    ensureProjectExists("pin-settings");
+    const paths = resolvePaths("pin-settings");
+    writePiSettings(paths, {
+      subagents: { agentOverrides: { scout: { model: "openrouter/openai/gpt-5.5" } } },
+    });
+    const tasks = () => [
+      { agent: "scout", task: "a" },
+      { agent: "worker", task: "b" },
+    ];
+
+    const overridden: Record<string, unknown> = { tasks: tasks() };
+    pinInheritedChildModels("pin-settings", overridden, parent);
+    expect(overridden.tasks).toEqual([
+      { agent: "scout", task: "a" },
+      { agent: "worker", task: "b", model: "openai-codex/gpt-5.6-sol" },
+    ]);
+
+    expect(setSubagentDefaultModel(paths, "openrouter/anthropic/claude-sonnet-5")).toBe(true);
+    const defaulted: Record<string, unknown> = { tasks: tasks(), agent: "worker", task: "c" };
+    pinInheritedChildModels("pin-settings", defaulted, parent);
+    expect(defaulted.tasks).toEqual(tasks());
+    expect(defaulted.model).toBeUndefined();
+
+    // The workflowScript path already honoured both; keep it that way.
+    const script: Record<string, unknown> = {
+      workflowScript: `return runs.run("main", { agent: "worker", task: "a" })`,
+    };
+    pinInheritedChildModels("pin-settings", script, parent);
+    expect(script.model).toBeUndefined();
+
+    // Clearing the default restores inheritance for unpinned agents.
+    expect(setSubagentDefaultModel(paths, null)).toBe(true);
+    const cleared: Record<string, unknown> = { agent: "worker", task: "d" };
+    pinInheritedChildModels("pin-settings", cleared, parent);
+    expect(cleared.model).toBe("openai-codex/gpt-5.6-sol");
+  });
+
+  it("ledgers cross-provider attempts separately and gates resume work", async () => {
+    createProject({ name: "Subagent billing", projectId: "sub-billing", spendLimitUsd: 0.5 });
+    const handlers = new Map<string, (event: any, ctx?: any) => any>();
+    const eventHandlers = new Map<string, (event: unknown) => void>();
+    const extension = makeSubagentLedgerExtension(
+      "sub-billing",
+      () => "parent-session",
+      () =>
+        ({
+          provider: "openai-codex",
+          id: "gpt-5.6-sol",
+        }) as Parameters<typeof pinInheritedChildModels>[2],
+      (providerId) => providerId === "openai-codex",
+    );
+    extension({
+      on: (name: string, handler: (event: any, ctx?: any) => any) => handlers.set(name, handler),
+      events: {
+        on: (name: string, handler: (event: unknown) => void) =>
+          eventHandlers.set(name, handler),
+      },
+    } as any);
+
+    await handlers.get("tool_result")!({
+      toolName: "subagent",
+      details: {
+        results: [
+          {
+            modelAttempts: [
+              {
+                model: "openrouter/openai/gpt-5.5",
+                usage: { input: 10, output: 5, cost: 1 },
+              },
+              {
+                model: "openai-codex/gpt-5.6-sol",
+                usage: { input: 20, output: 10, cost: 5 },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const summary = sessionCostSummary("parent-session", "sub-billing");
+    expect(summary.entries).toHaveLength(2);
+    expect(summary.totalUsd).toBeCloseTo(1);
+    expect(summary.listPriceUsd).toBeCloseTo(5);
+
+    const resumeResult = await handlers.get("tool_call")!({
+      toolName: "subagent",
+      input: { action: "resume", id: "run-1" },
+    });
+    expect(resumeResult).toMatchObject({ block: true });
+
+    // xAI now also takes an API key (provider-catalog.ts), so only an
+    // OAuth-only provider still needs the subscription login to delegate.
+    const unsupported = await handlers.get("tool_call")!({
+      toolName: "subagent",
+      input: {
+        agent: "custom",
+        task: "test",
+        model: "github-copilot/claude-sonnet-5",
+      },
+    });
+    expect(unsupported).toMatchObject({
+      block: true,
+      reason: expect.stringMatching(/subscription login/i),
+    });
+
+    // The same gate has to see a model named inside a workflow script, which
+    // since pi-subagents 0.74 lives in the reply that issues `workflow: true`.
+    const script = `return runs.run("main", { agent: "custom", model: "github-copilot/claude-sonnet-5", task: "test" })`;
+    const scripted = await handlers.get("tool_call")!(
+      { toolName: "subagent", toolCallId: "call-gate", input: { workflow: true } },
+      { cwd: resolvePaths("sub-billing").sandbox, sessionManager: { getBranch: () => replyBranch("call-gate", fenced(script)) } },
+    );
+    expect(scripted).toMatchObject({
+      block: true,
+      reason: expect.stringMatching(/subscription login/i),
+    });
+    // The internal carrier is still read for host-originated calls.
+    const carried = await handlers.get("tool_call")!({ toolName: "subagent", input: { workflowScript: script } });
+    expect(carried).toMatchObject({ block: true });
+  });
+});
+
+describe("sandbox-fs", () => {
+  const root = "/tmp/sbx";
+  it("hides dotfiles, sidecars, and known system names", () => {
+    expect(isUserVisible(path.join(root, "data.csv"), root)).toBe(true);
+    expect(isUserVisible(path.join(root, ".kady", "x"), root)).toBe(false);
+    expect(isUserVisible(path.join(root, "doc.pdf.annotations.json"), root)).toBe(false);
+    expect(isUserVisible(path.join(root, "AGENTS.md"), root)).toBe(false);
+    expect(isUserVisible(path.join(root, "GEMINI.md"), root)).toBe(false);
+  });
+  it("guesses mime types", () => {
+    expect(guessMime("a.pdf")).toBe("application/pdf");
+    expect(guessMime("a.png")).toBe("image/png");
+    expect(guessMime("a.unknownext")).toBe("application/octet-stream");
+    expect(guessMime("m.pdb")).toBe("chemical/x-pdb");
+    expect(guessMime("m.cif")).toBe("chemical/x-cif");
+    expect(guessMime("m.xyz")).toBe("chemical/x-xyz");
+    expect(guessMime("m.mol")).toBe("chemical/x-mdl-molfile");
+    expect(guessMime("m.sdf")).toBe("chemical/x-mdl-sdfile");
+    expect(guessMime("m.smi")).toBe("text/plain");
+    expect(guessMime("a.mzml")).toBe("application/xml");
+    expect(guessMime("a.jdx")).toBe("chemical/x-jcamp-dx");
+    expect(guessMime("a.parquet")).toBe("application/vnd.apache.parquet");
+    expect(guessMime("a.nwk")).toBe("text/plain");
+    expect(guessMime("a.dcm")).toBe("application/dicom");
+    expect(guessMime("a.nii")).toBe("application/octet-stream");
+    expect(guessMime("a.tif")).toBe("image/tiff");
+    expect(guessMime("a.tiff")).toBe("image/tiff");
+  });
+});
+
+describe("skills", () => {
+  it("copies sibling skills into their default enabled states", async () => {
+    const sib = resolvePaths("sib");
+    for (const [name, description] of [
+      ["anndata", "Annotated matrices."],
+      ["literature-review", "Systematic literature reviews."],
+    ]) {
+      const skillDir = path.join(sib.skillsDir, name);
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, "SKILL.md"),
+        `---\nname: ${name}\ndescription: ${description}\n---\n# ${name}\n`,
+      );
+    }
+
+    const target = ensureProjectExists("default");
+    const count = await seedProjectSkills(target, false); // no network
+    expect(count).toBe(2);
+    expect(listProjectSkills(target).map((s) => s.name)).toContain("literature-review");
+    expect(listDisabledSkills(target).map((s) => s.name)).toContain("anndata");
+  });
+});
+
+describe("events → client frames", () => {
+  it("keeps context usage unknown until the provider has measured the prompt", () => {
+    const rawUsage = { tokens: 0, contextWindow: 200_000, percent: 0 };
+    expect(
+      contextUsageForClient({
+        getContextUsage: () => rawUsage,
+        messages: [],
+      } as never),
+    ).toEqual({ tokens: null, contextWindow: 200_000, percent: null });
+
+    expect(
+      contextUsageForClient({
+        getContextUsage: () => ({ tokens: 120, contextWindow: 200_000, percent: 0.06 }),
+        messages: [
+          {
+            role: "assistant",
+            stopReason: "stop",
+            usage: {
+              input: 100,
+              output: 20,
+              cacheRead: 0,
+              cacheWrite: 0,
+              totalTokens: 120,
+            },
+          },
+        ],
+      } as never),
+    ).toEqual({ tokens: 120, contextWindow: 200_000, percent: 0.06 });
+  });
+
+  it("maps Pi context utilization onto the client wire shape", () => {
+    expect(
+      contextUsageFrame({
+        tokens: 42_000,
+        contextWindow: 200_000,
+        percent: 21,
+      }),
+    ).toEqual({
+      type: "context_usage",
+      tokens: 42_000,
+      contextWindow: 200_000,
+      percent: 21,
+    });
+    expect(contextUsageFrame(undefined)).toBeNull();
+  });
+
+  it("maps text/thinking deltas and tool/lifecycle events", () => {
+    expect(toClientFrame({ type: "agent_start" } as never)).toEqual({ type: "agent_start" });
+    expect(
+      toClientFrame({
+        type: "message_update",
+        message: {} as never,
+        assistantMessageEvent: { type: "text_delta", delta: "hi" } as never,
+      } as never),
+    ).toEqual({ type: "text_delta", delta: "hi" });
+    expect(
+      toClientFrame({
+        type: "tool_execution_start",
+        toolCallId: "t1",
+        toolName: "bash",
+        args: {},
+      } as never),
+    ).toMatchObject({ type: "tool_start", toolName: "bash" });
+    // Unmapped internal event → null
+    expect(toClientFrame({ type: "session_info_changed", name: "x" } as never)).toBeNull();
+  });
+
+  it("relativizes absolute sandbox paths in tool args", () => {
+    const root = "/Users/x/projects/p/sandbox";
+    // Exact path field → bare relative path.
+    expect(relativizeSandboxPaths({ path: `${root}/de_analysis.py` }, root)).toEqual({
+      path: "de_analysis.py",
+    });
+    // Nested folder under sandbox stays relative.
+    expect(relativizeSandboxPaths(`${root}/user_data/x.csv`, root)).toBe("user_data/x.csv");
+    // Embedded in a bash command → collapsed to ".".
+    expect(
+      relativizeSandboxPaths(`cd ${root} && uv run python de_analysis.py`, root),
+    ).toBe("cd . && uv run python de_analysis.py");
+    // Paths outside the sandbox are untouched; empty root is a no-op.
+    expect(relativizeSandboxPaths("/etc/hosts", root)).toBe("/etc/hosts");
+    expect(relativizeSandboxPaths(`${root}/a.py`, "")).toBe(`${root}/a.py`);
+  });
+
+  it("strips sandbox paths in the streamed tool_start frame", () => {
+    const root = "/Users/x/projects/p/sandbox";
+    const frame = toClientFrame(
+      {
+        type: "tool_execution_start",
+        toolCallId: "t1",
+        toolName: "write",
+        args: { path: `${root}/notes.md` },
+      } as never,
+      root,
+    );
+    expect(frame).toMatchObject({ type: "tool_start", args: { path: "notes.md" } });
+  });
+
+  it("streams only validated scientific details and bounded raster images", () => {
+    const root = "/Users/x/projects/p/sandbox";
+    const images = Array.from({ length: MAX_TOOL_RESULT_IMAGES + 1 }, (_, index) => ({
+      type: "image",
+      data: Buffer.from(`image-${index}`).toString("base64"),
+      mimeType: "image/png",
+    }));
+    images.push({
+      type: "image",
+      data: Buffer.from("svg").toString("base64"),
+      mimeType: "image/svg+xml",
+    });
+    const frame = toClientFrame(
+      {
+        type: "tool_execution_end",
+        toolCallId: "scientific-1",
+        toolName: "scientific_result",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: `saved ${root}/plot.png` }, ...images],
+          details: {
+            scientificResult: {
+              schemaVersion: 1,
+              kind: "plot",
+              title: "Volcano plot",
+              images: [{ path: `${root}/plot.png`, alt: "Volcano plot" }],
+            },
+            secret: "not on the wire",
+          },
+        },
+      } as never,
+      root,
+    );
+    expect(frame).toMatchObject({
+      type: "tool_end",
+      result: "saved plot.png",
+      scientificResult: {
+        kind: "plot",
+        images: [{ path: "plot.png" }],
+      },
+      imagesTruncated: 2,
+    });
+    expect((frame?.images as unknown[])).toHaveLength(MAX_TOOL_RESULT_IMAGES);
+    expect(frame).not.toHaveProperty("details");
+    expect(frame).not.toHaveProperty("secret");
+  });
+
+  it("does not forward arbitrary tool-result details", () => {
+    expect(
+      toClientFrame({
+        type: "tool_execution_end",
+        toolCallId: "t1",
+        toolName: "bash",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "ok" }],
+          details: { env: { API_KEY: "secret" } },
+        },
+      } as never),
+    ).toEqual({
+      type: "tool_end",
+      toolCallId: "t1",
+      toolName: "bash",
+      isError: false,
+      result: "ok",
+    });
+  });
+
+  it("includes content on user message_start (string and content-array forms)", () => {
+    expect(
+      toClientFrame({
+        type: "message_start",
+        message: { role: "user", content: "exclude sample 7" },
+      } as never),
+    ).toEqual({ type: "message_start", role: "user", content: "exclude sample 7" });
+
+    expect(
+      toClientFrame({
+        type: "message_start",
+        message: {
+          role: "user",
+          content: [
+            { type: "text", text: "look at" },
+            { type: "image", data: "…", mimeType: "image/png" },
+            { type: "text", text: "plot.png" },
+          ],
+        },
+      } as never),
+    ).toEqual({ type: "message_start", role: "user", content: "look at\nplot.png" });
+  });
+
+  it("omits content on assistant message_start", () => {
+    expect(
+      toClientFrame({
+        type: "message_start",
+        message: { role: "assistant", content: "internal" },
+      } as never),
+    ).toEqual({ type: "message_start", role: "assistant" });
+  });
+});
+
+describe("web access bridge", () => {
+  const settingsPath = (sandbox: string) => path.join(sandbox, ".pi", "settings.json");
+  const readSettings = (sandbox: string) =>
+    JSON.parse(fs.readFileSync(settingsPath(sandbox), "utf-8")) as {
+      packages?: string[];
+      [k: string]: unknown;
+    };
+
+  it("exposes the pi-web-access tool names", () => {
+    expect(WEB_ACCESS_TOOLS).toEqual([
+      "web_search",
+      "fetch_content",
+      "get_search_content",
+      "source_check",
+    ]);
+    expect(fs.existsSync(path.join(webAccessPackageDir(), "index.ts"))).toBe(true);
+  });
+
+  it("seeds the package reference into project settings, idempotently", () => {
+    const paths = ensureProjectExists("default");
+    expect(seedWebAccessPackage(paths)).toBe(true);
+    expect(readSettings(paths.sandbox).packages).toEqual([webAccessPackageDir()]);
+    // Second call is a no-op.
+    expect(seedWebAccessPackage(paths)).toBe(false);
+    expect(readSettings(paths.sandbox).packages).toEqual([webAccessPackageDir()]);
+  });
+
+  it("preserves existing settings and repairs stale references", () => {
+    const paths = ensureProjectExists("default");
+    fs.mkdirSync(path.dirname(settingsPath(paths.sandbox)), { recursive: true });
+    fs.writeFileSync(
+      settingsPath(paths.sandbox),
+      JSON.stringify({
+        theme: "dark",
+        packages: ["npm:some-other-package", "/old/location/node_modules/pi-web-access"],
+      }),
+      "utf-8",
+    );
+    expect(seedWebAccessPackage(paths)).toBe(true);
+    const settings = readSettings(paths.sandbox);
+    expect(settings.theme).toBe("dark");
+    expect(settings.packages).toEqual(["npm:some-other-package", webAccessPackageDir()]);
+  });
+
+  it("leaves an unparseable settings file untouched", () => {
+    const paths = ensureProjectExists("default");
+    fs.mkdirSync(path.dirname(settingsPath(paths.sandbox)), { recursive: true });
+    fs.writeFileSync(settingsPath(paths.sandbox), "{not json", "utf-8");
+    expect(seedWebAccessPackage(paths)).toBe(false);
+    expect(fs.readFileSync(settingsPath(paths.sandbox), "utf-8")).toBe("{not json");
+  });
+
+  it("seeds eager web tools, scientific summary instructions and model-free fetch modes without overriding a user choice", () => {
+    const agentDir = path.join(PROJECTS_ROOT, "fake-agent-dir");
+    const configFile = path.join(agentDir, "web-search.json");
+    const seeded = {
+      toolActivation: "eager",
+      summaryInstructions: SCIENTIFIC_SUMMARY_INSTRUCTIONS,
+      fetch: { allowedModes: ["readable", "raw"] },
+    };
+    expect(seedWebAccessDefaults(agentDir)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(configFile, "utf-8"))).toEqual(seeded);
+    expect(seedWebAccessDefaults(agentDir)).toBe(false);
+    expect(SCIENTIFIC_SUMMARY_INSTRUCTIONS.split("\n").every((line) => line.startsWith("- "))).toBe(true);
+
+    // Existing credentials survive; explicit choices stick (a blank string
+    // keeps pi-web-access's default summary prompt).
+    fs.writeFileSync(configFile, JSON.stringify({ exaApiKey: "k" }), "utf-8");
+    expect(seedWebAccessDefaults(agentDir)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(configFile, "utf-8"))).toEqual({ exaApiKey: "k", ...seeded });
+    fs.writeFileSync(configFile, JSON.stringify({ toolActivation: "dynamic", summaryInstructions: "", fetch: { allowedModes: ["readable", "raw", "answer"] } }), "utf-8");
+    expect(seedWebAccessDefaults(agentDir)).toBe(false);
+    // Other fetch settings survive; a default of "answer" keeps its mode (the package rejects a disallowed default).
+    fs.writeFileSync(configFile, JSON.stringify({ toolActivation: "eager", summaryInstructions: "", fetch: { timeout: 45 } }), "utf-8");
+    expect(seedWebAccessDefaults(agentDir)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(configFile, "utf-8")).fetch).toEqual({ timeout: 45, allowedModes: ["readable", "raw"] });
+    fs.writeFileSync(configFile, JSON.stringify({ toolActivation: "eager", summaryInstructions: "", fetch: { defaultMode: "answer" } }), "utf-8");
+    expect(seedWebAccessDefaults(agentDir)).toBe(false);
+    fs.writeFileSync(configFile, JSON.stringify({ toolActivation: "dynamic" }), "utf-8");
+    expect(seedWebAccessDefaults(agentDir)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(configFile, "utf-8")).toolActivation).toBe("dynamic");
+    fs.writeFileSync(configFile, "{not json", "utf-8");
+    expect(seedWebAccessDefaults(agentDir)).toBe(false);
+    expect(fs.readFileSync(configFile, "utf-8")).toBe("{not json");
+  });
+
+  it("pre-trusts the sandbox without overriding an explicit distrust", () => {
+    const paths = ensureProjectExists("default");
+    const agentDir = path.join(PROJECTS_ROOT, "fake-agent-dir");
+    trustSandbox(paths, agentDir);
+    const trustFile = path.join(agentDir, "trust.json");
+    const trusted = JSON.parse(fs.readFileSync(trustFile, "utf-8")) as Record<string, boolean>;
+    expect(Object.values(trusted)).toEqual([true]);
+
+    // A user's explicit "no" sticks.
+    const key = Object.keys(trusted)[0];
+    fs.writeFileSync(trustFile, JSON.stringify({ [key]: false }), "utf-8");
+    trustSandbox(paths, agentDir);
+    expect(
+      (JSON.parse(fs.readFileSync(trustFile, "utf-8")) as Record<string, boolean>)[key],
+    ).toBe(false);
+  });
+});
+
+describe("helper python resolution", () => {
+  it("honors KADY_PYTHON when set", () => {
+    const prev = process.env.KADY_PYTHON;
+    process.env.KADY_PYTHON = "/custom/python";
+    expect(helperPython()).toBe("/custom/python");
+    if (prev === undefined) delete process.env.KADY_PYTHON;
+    else process.env.KADY_PYTHON = prev;
+  });
+
+  it("points HELPERS_DIR at the helpers source dir", () => {
+    expect(HELPERS_DIR.endsWith(path.join("src", "helpers"))).toBe(true);
+  });
+});
+
+describe("sci helper dispatch", () => {
+  it("returns null for an unknown kind", () => {
+    expect(sciHelperFor("bogus")).toBeNull();
+  });
+  it("resolves known kinds to a helper script path", () => {
+    expect(sciHelperFor("chem")?.script.endsWith("chem_helper.py")).toBe(true);
+    expect(sciHelperFor("structure")?.script.endsWith("structure_helper.py")).toBe(true);
+  });
+  it("resolves the massspec kind", () => {
+    expect(sciHelperFor("massspec")?.script.endsWith("massspec_helper.py")).toBe(true);
+  });
+  it("resolves the arrays kind", () => {
+    expect(sciHelperFor("arrays")?.script.endsWith("arrays_helper.py")).toBe(true);
+  });
+  it("resolves the imaging kind", () => {
+    expect(sciHelperFor("imaging")?.script.endsWith("imaging_helper.py")).toBe(true);
+  });
+});

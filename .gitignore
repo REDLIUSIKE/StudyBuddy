@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+out/
+output/
+coverage/
+.cache/
+.dsh-build/
+*.log
+*.map
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+!.env.*.example
+.DS_Store
+Thumbs.db

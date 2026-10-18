@@ -1,0 +1,4 @@
+/* Native environment names must remain global; CSS Modules scopes unrecognized env names. */
+html[data-windows-titlebar] {
+  --dsh-windows-caption-actions-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100% - 138px)) + 12px);
+}

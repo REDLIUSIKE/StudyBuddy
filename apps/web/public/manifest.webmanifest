@@ -1,0 +1,15 @@
+{
+  "name": "StudyBuddy",
+  "short_name": "StudyBuddy",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

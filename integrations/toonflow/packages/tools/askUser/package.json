@@ -1,0 +1,17 @@
+{
+  "name": "@toonflow/tool-ask-user",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@toonflow/tools-scaffold": "workspace:*",
+    "typescript": "~6.0.3"
+  }
+}

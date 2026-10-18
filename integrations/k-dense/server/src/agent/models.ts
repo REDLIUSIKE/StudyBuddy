@@ -1,0 +1,576 @@
+/**
+ * Model resolution for the Pi agent.
+ *
+ * Supported access paths:
+ *   - OpenRouter (built-in Pi provider, key via OPENROUTER_API_KEY or OAuth)
+ *   - Pi OAuth providers (OpenAI / ChatGPT, OpenAI Codex (legacy), Anthropic,
+ *     GitHub Copilot, xAI, Kimi For Coding, Meta, Radius — `provider-auth.ts`)
+ *   - Every other built-in Pi API-key / cloud provider (Anthropic, OpenAI,
+ *     Google, Vertex, Azure, Bedrock, Cloudflare, NVIDIA NIM, Groq, Mistral,
+ *     DeepSeek, Hugging Face, Fireworks, Together, … — `provider-catalog.ts`)
+ *   - Ollama and any local OpenAI-compatible server (OLLAMA_BASE_URL /
+ *     OPENAI_COMPATIBLE_BASE_URL)
+ *
+ * The frontend picker sends model refs like "openrouter/anthropic/claude-opus-4.8",
+ * "groq/llama-3.3-70b-versatile" or "ollama/llama3". Direct providers resolve
+ * through Pi's registry only. OpenRouter has thousands of models that aren't all in Pi's
+ * built-in table, so when `find()` misses we synthesize a Model from the
+ * frontend catalogue (web/src/data/models.json) — Pi computes usage.cost from
+ * `model.cost`, so we populate it from the catalogue's per-1M pricing.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import type { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import type { Api, Model } from "@earendil-works/pi-ai";
+import {
+  DEFAULT_MODEL_ID,
+  DEFAULT_MODEL_PROVIDER,
+  REPO_ROOT,
+  ollamaBaseUrl,
+  openaiCompatibleBaseUrl,
+} from "../config.ts";
+import { readAppDefaults } from "../app-settings.ts";
+import { isSubscriptionProvider, subscriptionProvider } from "./provider-auth-metadata.ts";
+import { customProviderName, isCustomProvider } from "./custom-models.ts";
+import { directProvider, isDirectProvider } from "./provider-catalog.ts";
+
+// OpenRouter's base URL. Overridable via OPENROUTER_BASE_URL so the
+// OpenAI-compatible provider can point at any compatible gateway — e.g.
+// Requesty (https://router.requesty.ai/v1), which uses the same
+// "vendor/model" ids and Bearer auth as OpenRouter.
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
+const CATALOGUE_PATH = path.join(REPO_ROOT, "web", "src", "data", "models.json");
+
+interface CatalogueEntry {
+  contextWindow: number;
+  maxTokens: number;
+  costInput: number; // USD per 1M prompt tokens
+  costOutput: number; // USD per 1M completion tokens
+  input: ("text" | "image")[];
+  label: string;
+}
+
+let catalogue: Map<string, CatalogueEntry> | null = null;
+
+/** Normalize a frontend/user model ref to a bare OpenRouter id ("vendor/model"). */
+function stripOpenRouter(ref: string): string {
+  return ref.startsWith("openrouter/") ? ref.slice("openrouter/".length) : ref;
+}
+
+function loadCatalogue(): Map<string, CatalogueEntry> {
+  if (catalogue) return catalogue;
+  const map = new Map<string, CatalogueEntry>();
+  try {
+    const raw = JSON.parse(fs.readFileSync(CATALOGUE_PATH, "utf-8")) as unknown[];
+    for (const item of raw) {
+      const m = item as Record<string, unknown>;
+      const id = String(m.id ?? "");
+      if (!id) continue;
+      const pricing = (m.pricing ?? {}) as Record<string, unknown>;
+      const modality = String(m.modality ?? "text->text");
+      const input: ("text" | "image")[] = modality.includes("image")
+        ? ["text", "image"]
+        : ["text"];
+      map.set(stripOpenRouter(id), {
+        contextWindow: Number(m.context_length ?? 0) || 128_000,
+        maxTokens: Number(m.max_completion_tokens ?? 0) || 8192,
+        costInput: Number(pricing.prompt ?? 0),
+        costOutput: Number(pricing.completion ?? 0),
+        input,
+        label: String(m.label ?? id),
+      });
+    }
+  } catch (err) {
+    // Synthesized models fall back to $0 pricing, which silently disables the
+    // project spend caps — make the misconfiguration visible.
+    console.warn(
+      `[models] Failed to load model catalogue at ${CATALOGUE_PATH}: ` +
+        `${(err as Error).message}. Unknown models will be priced at $0, ` +
+        `so spend limits will not accrue.`,
+    );
+  }
+  catalogue = map;
+  return map;
+}
+
+// OpenRouter reasoning-effort suffixes are a routing form (e.g.
+// "anthropic/claude-opus-4.8-xhigh"), NOT separate catalogue rows — so an exact
+// lookup misses and the model would resolve to $0 cost, silently disabling the
+// project spend cap. These are stripped to price as the base model.
+const EFFORT_SUFFIXES = ["-xhigh", "-high", "-medium", "-low", "-minimal", "-none"];
+
+/**
+ * Catalogue lookup tolerant of a reasoning-effort suffix: exact match first
+ * (so "-fast", a distinct catalogue model with its own pricing, is never
+ * stripped), then fall back to the base model with the effort suffix removed.
+ */
+export function catalogueEntryFor(orId: string): CatalogueEntry | undefined {
+  const cat = loadCatalogue();
+  const exact = cat.get(orId);
+  if (exact) return exact;
+  for (const sfx of EFFORT_SUFFIXES) {
+    if (orId.endsWith(sfx)) {
+      const base = cat.get(orId.slice(0, -sfx.length));
+      if (base) return base;
+    }
+  }
+  return undefined;
+}
+
+function buildOpenRouterModel(orId: string): Model<Api> {
+  const cat = catalogueEntryFor(orId);
+  return {
+    id: orId,
+    name: cat?.label ?? orId,
+    api: "openai-completions",
+    provider: "openrouter",
+    baseUrl: OPENROUTER_BASE_URL,
+    reasoning: true,
+    input: cat?.input ?? ["text"],
+    cost: {
+      input: cat?.costInput ?? 0,
+      output: cat?.costOutput ?? 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    },
+    contextWindow: cat?.contextWindow ?? 128_000,
+    maxTokens: cat?.maxTokens ?? 8192,
+  };
+}
+
+/** Panel (analysis) model ids out of a Fusion request body (real schema). */
+function fusionPanelModels(fusionConfig: Record<string, unknown>): string[] {
+  const plugins = fusionConfig.plugins as Array<Record<string, unknown>> | undefined;
+  const panel = plugins?.[0]?.analysis_models;
+  return Array.isArray(panel) ? (panel as string[]) : [];
+}
+
+/** Judge model id out of a Fusion request body (`plugins[0].model`). */
+function fusionJudgeModel(fusionConfig: Record<string, unknown>): string | undefined {
+  const plugins = fusionConfig.plugins as Array<Record<string, unknown>> | undefined;
+  const judge = plugins?.[0]?.model;
+  return typeof judge === "string" && judge.trim() ? judge : undefined;
+}
+
+/**
+ * How many times the judge model is billed on one fusion turn.
+ *
+ * OpenRouter runs "N panel calls + 1 judge call in addition to your normal
+ * request" [1]. fusion-bridge.ts always rewrites the body to the
+ * `openrouter/fusion` alias, and under that alias the plugin's judge "also
+ * becomes the model that writes your final answer" [2] — so the judge bills
+ * once for the structured analysis and once for the final answer, while each
+ * panel model bills once.
+ *
+ * Deliberately duplicated from web/src/lib/fusion-presets.ts (the frontend
+ * can't import server code and vice versa). The picker's displayed price and
+ * the ledgered price must agree; a parity test over the shipped presets guards
+ * the two copies.
+ *
+ * [1] https://openrouter.ai/docs/guides/routing/routers/fusion-router
+ * [2] https://openrouter.ai/docs/guides/features/plugins/fusion
+ */
+const JUDGE_CALLS_PER_TURN = 2;
+
+/**
+ * Build the Pi Model for an OpenRouter Fusion run. The id is "openrouter/fusion"
+ * (the wire model the extension rewrites the body to), but its cost MUST be the
+ * SUM of every model the turn bills — the analysis panel once each, plus the
+ * judge JUDGE_CALLS_PER_TURN times. Otherwise Pi ledgers the turn short (cost
+ * flows from model.cost, not the rewritten HTTP body) and the project spend cap
+ * is eroded on every fusion message.
+ *
+ * Throws if the catalogue priced nothing at all, so the caller can abort rather
+ * than proceed with a $0-priced (cap-bypassing) Fusion model. A config that is
+ * only partly priceable still runs — it under-counts, but refusing would break
+ * working presets whose judge or panel we simply have no catalogue row for. The
+ * picker surfaces those ids in its "no catalogue price for" warning.
+ */
+export function buildFusionModel(fusionConfig: Record<string, unknown>): Model<Api> {
+  let costInput = 0;
+  let costOutput = 0;
+  let priced = 0;
+  for (const modelId of fusionPanelModels(fusionConfig)) {
+    const entry = catalogueEntryFor(stripOpenRouter(modelId));
+    if (!entry) continue;
+    costInput += entry.costInput;
+    costOutput += entry.costOutput;
+    priced++;
+  }
+  const judgeId = fusionJudgeModel(fusionConfig);
+  const judge = judgeId ? catalogueEntryFor(stripOpenRouter(judgeId)) : undefined;
+  if (judge) {
+    costInput += JUDGE_CALLS_PER_TURN * judge.costInput;
+    costOutput += JUDGE_CALLS_PER_TURN * judge.costOutput;
+    priced++;
+  }
+  if (priced === 0 || (costInput === 0 && costOutput === 0)) {
+    throw new Error(
+      "Fusion config has no priceable models in the catalogue; refusing to run a " +
+        "$0-priced Fusion model (spend cap would be bypassed).",
+    );
+  }
+  return {
+    id: "openrouter/fusion",
+    name: "OpenRouter Fusion",
+    api: "openai-completions",
+    provider: "openrouter",
+    baseUrl: OPENROUTER_BASE_URL,
+    reasoning: true,
+    input: ["text"],
+    cost: { input: costInput, output: costOutput, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 1_000_000,
+    maxTokens: 8192,
+  };
+}
+
+function buildOllamaModel(name: string): Model<Api> {
+  return {
+    id: name,
+    name,
+    api: "openai-completions",
+    provider: "ollama",
+    baseUrl: `${ollamaBaseUrl().replace(/\/+$/, "")}/v1`,
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 32_768,
+    maxTokens: 8192,
+  };
+}
+
+/**
+ * A model served by a local OpenAI-compatible server. Deliberately a parallel
+ * path to buildOllamaModel rather than a shared base — the two only look alike
+ * because both endpoints happen to be OpenAI-shaped.
+ *
+ * `/v1/models` carries no pricing or context length anywhere near reliably, so
+ * this uses the same $0 / 32K defaults Ollama does. $0 is honest here only
+ * because the provider is local-only; see `billingForProvider`.
+ */
+export function buildOpenAICompatibleModel(name: string): Model<Api> {
+  return {
+    id: name,
+    name,
+    api: "openai-completions",
+    provider: "openai-compatible",
+    baseUrl: `${openaiCompatibleBaseUrl().replace(/\/+$/, "")}/v1`,
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 32_768,
+    maxTokens: 8192,
+  };
+}
+
+/**
+ * NVIDIA NIM (build.nvidia.com). A built-in Pi provider, so `registry.find`
+ * normally supplies the model with real metadata; this fallback keeps refs to
+ * models newer than Pi's catalogue snapshot runnable. $0 cost matches Pi's own
+ * NIM entries — the endpoint draws NVIDIA API credits, not per-token USD (see
+ * `billingForProvider`, which classifies the provider as external spend).
+ */
+export function buildNvidiaModel(id: string): Model<Api> {
+  return {
+    id,
+    name: id,
+    api: "openai-completions",
+    provider: "nvidia",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    reasoning: true,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 8192,
+  };
+}
+
+/**
+ * NIM model ids pinned via `NVIDIA_EXTRA_MODELS` (comma/whitespace separated).
+ * Values are model ids exactly as sent to the API — no `nvidia/` ref prefix is
+ * stripped, because NIM ids legitimately start with a vendor segment that can
+ * itself be `nvidia/` (e.g. `nvidia/llama-3.3-nemotron-super-49b-v1.5`).
+ * Lets private/early-access endpoints absent from Pi's catalogue (e.g.
+ * `private/nvidia/...` ids) surface in the picker; the resolver already runs
+ * any such ref via `buildNvidiaModel`.
+ */
+export function nvidiaExtraModelIds(): string[] {
+  const raw = process.env.NVIDIA_EXTRA_MODELS ?? "";
+  return [...new Set(raw.split(/[\s,]+/).filter(Boolean))];
+}
+
+/**
+ * Register the two local model servers under their current base URLs. Runs at
+ * startup and again whenever Settings changes OLLAMA_BASE_URL /
+ * OPENAI_COMPATIBLE_BASE_URL (api/credentials.ts): Pi merges a re-registration
+ * over the previous one and refreshes itself, so no restart is needed.
+ */
+export function registerLocalProviders(modelRuntime: ModelRuntime): void {
+  modelRuntime.registerProvider("ollama", {
+    name: "Ollama",
+    baseUrl: `${ollamaBaseUrl().replace(/\/+$/, "")}/v1`,
+    api: "openai-completions",
+    apiKey: "ollama",
+  });
+
+  // Local servers ignore the credential, but Pi needs *something* to resolve
+  // before it will dispatch — same placeholder arrangement as Ollama.
+  modelRuntime.registerProvider("openai-compatible", {
+    name: "OpenAI-Compatible",
+    baseUrl: `${openaiCompatibleBaseUrl().replace(/\/+$/, "")}/v1`,
+    api: "openai-completions",
+    apiKey: "openai-compatible",
+  });
+}
+
+/** Configure app-specific providers and normalize the legacy OpenRouter alias. */
+export async function setupModelRuntime(modelRuntime: ModelRuntime): Promise<void> {
+  registerLocalProviders(modelRuntime);
+
+  // Let Pi resolve stored credentials before ambient keys, consistently in
+  // lead/child runtimes and after restart. A runtime override masks OAuth.
+  // Normalize the legacy alias into the inherited environment for children.
+  if (!process.env.OPENROUTER_API_KEY?.trim() && process.env.OR_API_KEY?.trim()) {
+    process.env.OPENROUTER_API_KEY = process.env.OR_API_KEY.trim();
+    await modelRuntime.refresh({ providers: ["openrouter"], allowNetwork: false });
+  }
+}
+
+export class ModelResolutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ModelResolutionError";
+  }
+}
+
+export class ModelAuthenticationError extends Error {
+  constructor(
+    readonly providerId: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ModelAuthenticationError";
+  }
+}
+
+/** Canonical provider/model ref used by the frontend, ledgers, and subagents. */
+export function modelReference(model: Model<Api>): string {
+  if (model.provider === "openrouter" && model.id === "openrouter/fusion") {
+    return "openrouter/fusion";
+  }
+  return `${model.provider}/${model.id}`;
+}
+
+/**
+ * The ref a chat starts on when none was chosen, strongest first: the saved
+ * app default (Settings, `<agentDir>/kady-settings.json`), then
+ * DEFAULT_MODEL_PROVIDER / DEFAULT_MODEL_ID, then the built-in default
+ * (config.ts falls back per variable when they are unset).
+ */
+export function configuredDefaultRef(): string {
+  return readAppDefaults().model ?? environmentDefaultRef();
+}
+
+function environmentDefaultRef(): string {
+  const provider = DEFAULT_MODEL_PROVIDER.trim().toLowerCase() || "openrouter";
+  const id = DEFAULT_MODEL_ID.trim();
+  if (!id) {
+    throw new ModelResolutionError("DEFAULT_MODEL_ID is empty");
+  }
+  if (provider === "openrouter") {
+    return id.startsWith("openrouter/") ? id : `openrouter/${id}`;
+  }
+  if (provider === "ollama") {
+    return id.startsWith("ollama/") ? id : `ollama/${id}`;
+  }
+  if (isSubscriptionProvider(provider)) {
+    return id.startsWith(`${provider}/`) ? id : `${provider}/${id}`;
+  }
+  return `${provider}/${id}`;
+}
+
+/**
+ * Split a `<provider>/<model-id>` ref for any direct Pi provider Kady exposes
+ * (API-key providers from `provider-catalog.ts` and OAuth providers from
+ * `provider-auth.ts`). Everything after the first slash is the model id
+ * verbatim: NIM, Hugging Face, Fireworks, Together, Baseten, Vercel and
+ * Cloudflare ids all contain slashes (`meta/llama-3.3-70b-instruct`,
+ * `accounts/fireworks/models/…`, `@cf/…`). `openrouter/` is excluded here
+ * because it has its own catalogue-priced path in `resolveModel`.
+ */
+function directProviderRef(
+  ref: string,
+): { providerId: string; modelId: string } | null {
+  const slash = ref.indexOf("/");
+  if (slash <= 0) return null;
+  const providerId = ref.slice(0, slash);
+  if (providerId === "openrouter") return null;
+  // Custom servers from models.json are first-class Pi providers too.
+  if (!isDirectProvider(providerId) && !isSubscriptionProvider(providerId) && !isCustomProvider(providerId)) {
+    return null;
+  }
+  return { providerId, modelId: ref.slice(slash + 1) };
+}
+
+export function isSubscriptionModelRef(ref: string): boolean {
+  const direct = directProviderRef(ref.trim());
+  return direct !== null && isSubscriptionProvider(direct.providerId);
+}
+
+/**
+ * True for providers Kady only reaches through an OAuth login: no API-key row
+ * exists for them, so an ambient token must not be mistaken for subscription
+ * access (`openai-codex`, `github-copilot`, `radius`). OpenRouter is in the
+ * OAuth list only as a sign-in alternative to its key row and is never
+ * OAuth-only.
+ */
+export function isOAuthOnlyProvider(providerId: string): boolean {
+  return (
+    isSubscriptionProvider(providerId) &&
+    !isDirectProvider(providerId) &&
+    providerId !== "openrouter"
+  );
+}
+
+function providerDisplayName(providerId: string): string {
+  return (
+    directProvider(providerId)?.name ??
+    subscriptionProvider(providerId)?.name ??
+    (providerId === "openrouter"
+      ? "OpenRouter"
+      : isCustomProvider(providerId)
+        ? customProviderName(providerId)
+        : providerId)
+  );
+}
+
+/**
+ * Verify that a model's provider is configured for the intended product path.
+ * API-key providers accept a key or (where Pi offers one) an OAuth login;
+ * OAuth-only providers require the login, so an ambient token is never
+ * silently treated as subscription access.
+ */
+export async function assertModelAuthentication(
+  model: Model<Api>,
+  modelRuntime: ModelRuntime,
+): Promise<void> {
+  // Local servers authenticate with a placeholder credential, so there is no
+  // real auth state to assert — reachability is the only failure mode.
+  if (model.provider === "ollama" || model.provider === "openai-compatible") return;
+  const auth = await modelRuntime.checkAuth(model.provider);
+  const name = providerDisplayName(model.provider);
+  if (!auth) {
+    const hasKeyRow = model.provider === "openrouter" || isDirectProvider(model.provider);
+    const hasLogin = isSubscriptionProvider(model.provider);
+    const how =
+      hasKeyRow && hasLogin
+        ? "Add an API key or sign in under Settings → Providers"
+        : hasKeyRow
+          ? "Add an API key under Settings → Providers"
+          : "Sign in under Settings → Providers";
+    throw new ModelAuthenticationError(
+      model.provider,
+      `${name} is not configured. ${how}, or choose another model.`,
+    );
+  }
+  if (isOAuthOnlyProvider(model.provider) && auth.type !== "oauth") {
+    throw new ModelAuthenticationError(
+      model.provider,
+      `${name} has an API key but no subscription login. Connect the subscription in Settings.`,
+    );
+  }
+}
+
+/**
+ * Resolve a model ref to a Pi Model. Prefers Pi's built-in entry (so cost +
+ * capabilities stay accurate), falling back to a synthesized model.
+ */
+export function resolveModel(
+  ref: string | undefined,
+  registry: ModelRegistry,
+  fusionConfig?: Record<string, unknown>,
+): Model<Api> {
+  if (ref && ref.trim()) return resolveRef(ref.trim(), registry, fusionConfig);
+  const saved = readAppDefaults().model;
+  if (saved) {
+    try {
+      return resolveRef(saved, registry);
+    } catch {
+      // Every session build resolves the default, so a saved one that went
+      // stale (a removed custom server, a delisted model) must not make chats
+      // unopenable; the environment/built-in default takes over.
+    }
+  }
+  return resolveRef(environmentDefaultRef(), registry, fusionConfig);
+}
+
+function resolveRef(
+  r: string,
+  registry: ModelRegistry,
+  fusionConfig?: Record<string, unknown>,
+): Model<Api> {
+  // A "fusion/<id>" ref is the synthetic selector entry; resolve it to the real
+  // openrouter/fusion Model, priced by the panel sum. The bare string ref can't
+  // carry the panel prices, so the fusionConfig must be threaded in by the
+  // caller (the /run handler). Throws if it wasn't — never proceed at $0.
+  if (r.startsWith("fusion/")) {
+    if (!fusionConfig) {
+      throw new Error(
+        `Fusion model ref "${r}" requires its fusionConfig to be passed for pricing.`,
+      );
+    }
+    return buildFusionModel(fusionConfig);
+  }
+  if (r.startsWith("ollama/")) {
+    return buildOllamaModel(r.slice("ollama/".length));
+  }
+  // Everything after the prefix is the model id verbatim — LM Studio ids often
+  // contain slashes themselves (e.g. "qwen/qwen3-8b"), so this must not split.
+  if (r.startsWith("openai-compatible/")) {
+    const id = r.slice("openai-compatible/".length);
+    if (!id) {
+      throw new ModelResolutionError(`Model ref "${r}" is missing a model id`);
+    }
+    return buildOpenAICompatibleModel(id);
+  }
+  // Every other direct Pi provider: the id after the prefix is verbatim (NIM,
+  // Hugging Face, Fireworks, Cloudflare… ids contain slashes). Pi's registry
+  // supplies real pricing/capabilities; an id it doesn't know is an error
+  // unless the provider is credit-billed at $0 anyway (NVIDIA NIM), because a
+  // payg model synthesized at $0 would silently bypass the project spend cap.
+  const direct = directProviderRef(r);
+  if (direct) {
+    if (!direct.modelId) {
+      throw new ModelResolutionError(`Model ref "${r}" is missing a model id`);
+    }
+    const model = registry.find(direct.providerId, direct.modelId);
+    if (model) return model;
+    if (directProvider(direct.providerId)?.synthesizeUnknownIds) {
+      // Only NIM opts in (provider-catalog.ts); the synthesizer is
+      // provider-specific because the base URL is, so refuse anything else.
+      if (direct.providerId !== "nvidia") {
+        throw new ModelResolutionError(
+          `No synthesizer for ${direct.providerId} model "${direct.modelId}"`,
+        );
+      }
+      return buildNvidiaModel(direct.modelId);
+    }
+    throw new ModelResolutionError(
+      `Unknown ${providerDisplayName(direct.providerId)} model "${direct.modelId}"`,
+    );
+  }
+  if (r.startsWith("openrouter/")) {
+    const orId = stripOpenRouter(r);
+    if (!orId) throw new ModelResolutionError("OpenRouter model ref is missing a model id");
+    return registry.find("openrouter", orId) ?? buildOpenRouterModel(orId);
+  }
+  // Backward compatibility for pre-canonical refs such as
+  // "meta-llama/llama-3.3-70b": unknown prefixes remain OpenRouter vendor ids.
+  const orId = stripOpenRouter(r);
+  return registry.find("openrouter", orId) ?? buildOpenRouterModel(orId);
+}
+
+export function defaultModel(registry: ModelRegistry): Model<Api> {
+  return resolveModel(undefined, registry);
+}

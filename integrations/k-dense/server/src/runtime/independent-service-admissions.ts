@@ -1,0 +1,10 @@
+/** Freeze independent compute authority before the native confirmation; never persist raw keys. */
+import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {atomicJson} from '../atomic-json.ts';import {assertResearchPath} from './project-storage.ts';import {NativeServiceCredentials} from './native-service-credentials.ts';
+export class IndependentServiceAdmissions {
+ constructor(private readonly directory:string,private readonly store:NativeServiceCredentials){}
+ private signature(input:unknown){const value=JSON.stringify(input);if(value===undefined)throw Error('RESEARCH_COMPUTE_INPUT_INVALID');return createHash('sha256').update(value).digest('hex');}
+ private file(actor:{projectId:string;sessionId:string;toolCallId:string}){const file=path.join(this.directory,this.signature(actor)+'.json');assertResearchPath(file);return file;}
+ private authority(provider:'modal'|'autodl'){return this.signature(provider==='autodl'?[provider,this.store.secret('autodlToken')]:[provider,this.store.secret('modalTokenId'),this.store.secret('modalTokenSecret')]);}
+ prepare(actor:{projectId:string;sessionId:string;toolCallId:string},request:unknown){const provider=this.store.selection().compute,signature=this.signature(request),authority=this.authority(provider),file=this.file(actor);if(fs.existsSync(file)){const previous=JSON.parse(fs.readFileSync(file,'utf8'));if(previous.provider!==provider||previous.signature!==signature||previous.authority!==authority)throw Error('RESEARCH_COMPUTE_CONFIRMATION_CHANGED');return {provider};}atomicJson(file,{schemaVersion:1,actor,provider,signature,authority});return {provider};}
+ require(actor:{projectId:string;sessionId:string;toolCallId:string},request:unknown):'modal'|'autodl'{const file=this.file(actor);if(!fs.existsSync(file))throw Error('RESEARCH_COMPUTE_CONFIRMATION_REQUIRED');const old=JSON.parse(fs.readFileSync(file,'utf8')),provider=this.store.selection().compute;if(old.provider!==provider||old.signature!==this.signature(request)||old.authority!==this.authority(provider))throw Error('RESEARCH_COMPUTE_CONFIRMATION_CHANGED');return provider;}
+}

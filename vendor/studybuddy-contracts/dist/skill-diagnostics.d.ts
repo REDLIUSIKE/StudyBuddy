@@ -1,0 +1,30 @@
+export declare const SKILL_DIAGNOSTIC_ACTIONS: readonly ["startup", "webview_open", "webview_resize", "webview_close", "bridge", "scan", "copy", "install", "import", "enable", "disable", "remove", "manage", "cancel", "open_instance", "open_project", "open_tool_center", "pick_project", "catalog", "favorite", "publisher", "github_metadata", "package_upload", "cover_upload", "publish", "update", "delete", "prompt", "native_response", "page", "copy_preflight", "library_metadata", "import_local", "export", "forget_project", "watch_start", "watch_stop", "ai_enable", "ai_status", "ai_revoke", "ai_approve", "ai_inventory", "ai_inspect", "ai_preflight", "ai_execute"];
+export declare const SKILL_STARTUP_PHASES: readonly ["session_exchange", "session_restore", "native_client", "bridge_connect"];
+export declare const SKILL_DIAGNOSTIC_PHASES: readonly ["session_exchange", "session_restore", "native_client", "bridge_connect", "preflight", "authorization", "bridge", "detection", "scan", "source", "package_ticket", "package_download", "package_verify", "destination", "stage", "publish", "readback", "dependency", "open", "project_selection", "web_request", "package_upload", "cover_upload", "clipboard", "native_response", "page_runtime"];
+export declare const SKILL_WEB_ACTIONS: readonly ["startup", "catalog", "favorite", "publisher", "github_metadata", "package_upload", "cover_upload", "publish", "update", "delete", "prompt", "native_response", "page"];
+export declare const SKILL_WEB_PHASES: readonly ["session_exchange", "session_restore", "native_client", "bridge_connect", "web_request", "package_upload", "cover_upload", "clipboard", "native_response", "page_runtime"];
+export type SkillDiagnosticAction = typeof SKILL_DIAGNOSTIC_ACTIONS[number];
+export type SkillDiagnosticPhase = typeof SKILL_DIAGNOSTIC_PHASES[number];
+export type SkillWebDiagnostic = {
+    operationId: string;
+    action: typeof SKILL_WEB_ACTIONS[number];
+    phase: typeof SKILL_WEB_PHASES[number];
+    outcome: "started" | "succeeded" | "failed" | "cancelled";
+    errorCode: string | null;
+    requestId: string | null;
+    durationMs: number | null;
+    httpStatus?: number | null;
+};
+export declare function safeSkillDiagnosticCode(value: unknown): string;
+export declare function parseSkillWebDiagnostic(value: unknown): SkillWebDiagnostic;
+export type SkillDiagnosticView = {
+    action?: SkillDiagnosticAction;
+    phase?: SkillDiagnosticPhase;
+    httpStatus?: number;
+    toolId?: string;
+    targetStatus?: "copied" | "linked" | "already_present" | "conflict" | "failed" | "blocked" | "cancelled" | "imported" | "removed" | "disabled";
+    destinationId?: string;
+    sourceId?: string;
+    contentSha256?: string;
+};
+export declare function projectSkillDiagnosticFields(component: string, fields: unknown): SkillDiagnosticView | undefined;

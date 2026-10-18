@@ -1,0 +1,2 @@
+export { videoToolDefinitions, videoCapabilityTools, VIDEO_CAPABILITY_REVISION } from '../../../../integrations/openfilm/packages/openfilm/studio/server/embedded/tool-descriptors.mjs';
+//# sourceMappingURL=video-tool-descriptors.d.ts.map

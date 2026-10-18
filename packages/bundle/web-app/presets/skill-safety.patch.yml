@@ -1,0 +1,19 @@
+# Dedicated native safety scope. No filesystem, target skill loader, shell or hooks.
+# Helper instruction entries are admitted only after the recorded real no-guidance baseline.
+- insert:
+    - id: preset-skill-safety
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: skill-safety
+        order: 5
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: You are a helpful assistant.
+              complete: true
+              includeRuntimeContext: false
+          - id: skill-safety-tools
+            name: '@deepseek-ai/dsh-skill-safety-assistant/tools'
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'

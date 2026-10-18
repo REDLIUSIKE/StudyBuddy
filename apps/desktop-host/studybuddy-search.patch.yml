@@ -1,0 +1,9 @@
+- id: web
+  config:
+    searchProvider: studybuddy-gateway
+    fetchProvider: http
+- id: web-search-deepseek
+  disabled: true
+- insert:
+    - id: web-search-studybuddy
+      name: '@deepseek-ai/dsh-web-search-studybuddy'

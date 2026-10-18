@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-studybuddy-account/README.md
+/:
+  en: 8f3bb8e71fecae0a
+  zh: 5636914016e80c04
+/deepseek-ai-dsh-client-ui-studybuddy-account:
+  en: 78e060ec10e39fc7
+  zh: 53d5c3c40a66df7d
+/deepseek-ai-dsh-client-ui-studybuddy-account/summary:
+  en: 1647563eba035e10
+  zh: 35d02f20a8965144
+/deepseek-ai-dsh-client-ui-studybuddy-account/table-of-contents:
+  en: 3460b3e585e0c020
+  zh: 0230b5c949979684
+/deepseek-ai-dsh-client-ui-studybuddy-account/use-this-package:
+  en: 4a33695f0fada5af
+  zh: e9e969944c7f73c1
+/deepseek-ai-dsh-client-ui-studybuddy-account/understand-the-implementation:
+  en: 9806571dbf7fcd89
+  zh: f113a6ca2896d4df
+/deepseek-ai-dsh-client-ui-studybuddy-account/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-client-ui-studybuddy-account/model-experience/explicit-source-diagnostics:
+  en: 2dec8ce60bf8dbad
+  zh: e9432b50421b1c7d
+/deepseek-ai-dsh-client-ui-studybuddy-account/model-experience/explicit-source-diagnostics/what-the-model-sees:
+  en: da2bfd9bab50234b
+  zh: 27f488ab1295b188
+/deepseek-ai-dsh-client-ui-studybuddy-account/model-experience/explicit-source-diagnostics/token-effect:
+  en: a72011d48d0d22e4
+  zh: 074076b0a3e20775
+/deepseek-ai-dsh-client-ui-studybuddy-account/model-experience/explicit-source-diagnostics/kv-cache-effect:
+  en: 06ddbcce33b3c21f
+  zh: 0334eecc59dd4042
+/deepseek-ai-dsh-client-ui-studybuddy-account/known-limitations-and-deferred-work:
+  en: 5ddc9069c4324a33
+  zh: d9787fcfdc911201
+/deepseek-ai-dsh-client-ui-studybuddy-account/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: fd71ba5e495ef0ef

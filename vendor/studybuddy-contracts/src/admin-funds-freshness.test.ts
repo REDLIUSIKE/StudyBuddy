@@ -1,0 +1,20 @@
+import {expect,it} from "vitest";
+import {fundingTargetGap,fundsMetricAt,fundingBalanceAt,type FundingAccount,type FundingAlertConfig} from "./admin-funds.js";
+const now=Date.parse("2026-10-10T01:00:00Z");
+const account:FundingAccount={id:"account",label:"synthetic",bindingState:"verified",connections:[],balance:{accountId:"account",provider:"kimi",region:"cn",currency:"CNY",bindingVersion:"v",available:"9007199254740993.00001",cash:"9007199254740993.00001",grant:"0",officialCallable:true,successAt:"2026-10-10T01:00:00Z",attemptAt:"2026-10-10T01:00:00Z",queryState:"success",errorCode:null}};
+const config:FundingAlertConfig={accountId:"account",version:"v",currency:"CNY",minimum:"0",target:"9007199254740993.00002",enabled:true};
+it("keeps exact sub-cent gaps beyond Number precision and closes calculations for unverified readings",()=>{
+ expect(fundingTargetGap(account,config,now)).toBe("0.00001");
+ expect(fundingTargetGap(account,{...config,target:"1"},now)).toBe("0");
+ expect(fundingTargetGap({...account,balance:{...account.balance,available:"0"}},{...config,target:"3000.00"},now)).toBe("3000");
+ expect(fundingTargetGap(account,config,now+900000)).toBeNull();
+ expect(fundingTargetGap(account,config,now-1)).toBeNull();
+ expect(fundingTargetGap({...account,bindingState:"invalid"},config,now)).toBeNull();
+ expect(fundingTargetGap({...account,balance:{...account.balance,queryState:"failed"}},config,now)).toBeNull();
+ expect(fundingTargetGap(account,null,now)).toBeNull();
+ expect(fundingBalanceAt(account.balance,now+900000)).toMatchObject({queryState:"stale",available:account.balance.available,successAt:account.balance.successAt});
+ const metric={currency:"CNY" as const,amount:"0",state:"complete" as const,source:{instanceId:"native",contractVersion:"studybuddy-funds-v1" as const,snapshotId:"s",watermark:"w",observedAt:account.balance.successAt!,effectiveFrom:null,effectiveToExclusive:null,authority:{kind:"official_balance" as const,bindingVersion:"v"}},confirmedCount:1,pendingCount:0,scopeId:"s",reasonCode:null};
+ expect(fundsMetricAt(metric,now).state).toBe("complete");
+ expect(fundsMetricAt(metric,now+900000)).toMatchObject({state:"stale",amount:"0",source:metric.source});
+ expect(fundsMetricAt(metric,now-1).state).toBe("stale");
+});

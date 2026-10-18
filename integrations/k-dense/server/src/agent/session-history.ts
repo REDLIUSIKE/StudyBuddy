@@ -1,0 +1,155 @@
+/**
+ * Replay a stored Pi session JSONL file as the client SSE frame vocabulary.
+ *
+ * Reload recovery: the frontend rebuilds a past chat by folding these frames
+ * through the same reducer it uses for live streams (applyFrameToMessage), so
+ * a reopened transcript renders exactly like it did while streaming — prose,
+ * reasoning blocks, and tool activity rows with args and capped results.
+ */
+import {
+  customMessageFrame,
+  relativizeSandboxPaths,
+  skillFieldFor,
+  toolResultFields,
+  type ClientFrame,
+} from "./events.ts";
+import {
+  readEntries,
+  textOf,
+  type TextPart,
+  type ThinkingPart,
+  type ToolCallPart,
+} from "./session-export.ts";
+
+export interface HistoryMessage {
+  /** `system` = an extension-injected custom message or a compaction marker. */
+  role: "user" | "assistant" | "system";
+  /** Prompt text (user) or rendered notice text (system). */
+  content?: string;
+  /** Custom message type — system messages only (e.g. `subagent_watchdog_warning`). */
+  customType?: string;
+  /** Whitelisted scalar details — system messages only. */
+  details?: Record<string, string | number | boolean>;
+  /** Inline image attachments (base64 + mime type) — user messages only. */
+  images?: { data: string; mimeType: string }[];
+  /** Ordered replay frames — assistant messages only. */
+  frames?: ClientFrame[];
+  /** Wall-clock ms of the underlying log row, when recorded. */
+  timestamp?: number;
+}
+
+/** Inline image parts of a user message (prompt attachments). */
+function imagesOf(content: { type: string }[]): { data: string; mimeType: string }[] {
+  const out: { data: string; mimeType: string }[] = [];
+  for (const part of content ?? []) {
+    if (part.type !== "image") continue;
+    const { data, mimeType } = part as { data?: unknown; mimeType?: unknown };
+    if (typeof data === "string" && typeof mimeType === "string") {
+      out.push({ data, mimeType });
+    }
+  }
+  return out;
+}
+
+export function toHistory(file: string, sandboxRoot = ""): HistoryMessage[] {
+  const out: HistoryMessage[] = [];
+  // One assistant history message accumulates every agent turn between two
+  // user prompts — the same shape the live stream produces client-side.
+  let assistant: HistoryMessage | null = null;
+  const pushFrame = (f: ClientFrame, timestamp?: number) => {
+    if (!assistant) {
+      assistant = { role: "assistant", frames: [], timestamp };
+      out.push(assistant);
+    }
+    assistant.frames!.push(f);
+  };
+
+  const pushSystem = (frame: ClientFrame | null, timestamp?: string) => {
+    if (!frame) return;
+    const ms = timestamp ? Date.parse(timestamp) : NaN;
+    out.push({
+      role: "system",
+      content: typeof frame.content === "string" ? frame.content : "",
+      customType: typeof frame.customType === "string" ? frame.customType : "custom",
+      ...(frame.details ? { details: frame.details as HistoryMessage["details"] } : {}),
+      ...(Number.isFinite(ms) ? { timestamp: ms } : {}),
+    });
+    // The card sits between turns: whatever the agent says next opens a new
+    // bubble, mirroring the live order (card, then reply).
+    assistant = null;
+  };
+
+  for (const row of readEntries(file)) {
+    if (row.type === "custom_message") {
+      pushSystem(customMessageFrame(row, sandboxRoot), row.timestamp);
+      continue;
+    }
+    if (row.type === "compaction") {
+      pushSystem(
+        customMessageFrame(
+          {
+            customType: "compaction",
+            content: "Context compacted",
+            details: { tokensBefore: row.tokensBefore },
+          },
+          sandboxRoot,
+        ),
+        row.timestamp,
+      );
+      continue;
+    }
+    const m = row.message;
+    if (m.role === "user") {
+      const text = textOf(m.content);
+      const images = imagesOf(m.content);
+      if (!text && images.length === 0) continue;
+      out.push({
+        role: "user",
+        content: text,
+        ...(images.length > 0 ? { images } : {}),
+        timestamp: m.timestamp,
+      });
+      assistant = null;
+      continue;
+    }
+    if (m.role === "toolResult" && m.toolCallId) {
+      pushFrame(
+        {
+          type: "tool_end",
+          toolCallId: m.toolCallId,
+          toolName: m.toolName,
+          isError: Boolean(m.isError),
+          ...toolResultFields(
+            { content: m.content, details: m.details },
+            sandboxRoot,
+          ),
+        },
+        m.timestamp,
+      );
+      continue;
+    }
+    if (m.role !== "assistant") continue;
+    for (const part of m.content ?? []) {
+      if (part.type === "thinking") {
+        const t = (part as ThinkingPart).thinking;
+        if (t) pushFrame({ type: "thinking_delta", delta: t }, m.timestamp);
+      } else if (part.type === "text") {
+        const t = (part as TextPart).text;
+        if (t) pushFrame({ type: "text_delta", delta: t }, m.timestamp);
+      } else if (part.type === "toolCall") {
+        const call = part as ToolCallPart;
+        pushFrame(
+          {
+            type: "tool_start",
+            toolCallId: call.id,
+            toolName: call.name,
+            args: relativizeSandboxPaths(call.arguments ?? {}, sandboxRoot),
+            ...skillFieldFor(call.name, call.arguments, sandboxRoot),
+          },
+          m.timestamp,
+        );
+      }
+    }
+  }
+  return out;
+}

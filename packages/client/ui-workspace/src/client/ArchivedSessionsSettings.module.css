@@ -1,0 +1,9 @@
+.root { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 720px; }
+.root h2 { margin: 0; font-size: 16px; font-weight: 500; }
+.root p { margin: 0; }
+.list { margin: 0; padding: 0; list-style: none; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
+.metadata { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.title { overflow-wrap: anywhere; }
+.workspace, .empty { color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.row > button { flex-shrink: 0; }

@@ -1,0 +1,26 @@
+{
+  "name": "@deepseek-ai/dsh-llm-studybuddy-builtin",
+  "description": "Private native-owned exact StudyBuddy source admission",
+  "version": "1.0.8",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": { ".": { "types": "./lib/types/index.d.ts", "default": "./lib/index.js" }, "./types": { "types": "./lib/types/types.d.ts", "default": "./lib/types/types.js" }, "./package.json": "./package.json" },
+  "files": ["lib/index.js", "lib/types/**/*.js", "lib/types/**/*.d.ts"],
+  "license": "MIT",
+  "dependencies": {
+    "@studybuddy/contracts": "workspace:~",
+    "@deepseek-ai/dsh-llm-pi-ai": "workspace:*",
+    "@deepseek-ai/dsh-session": "workspace:*",
+    "@deepseek-ai/dsh-util-values": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-llm": "workspace:*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-llm": "workspace:*"
+  }
+}

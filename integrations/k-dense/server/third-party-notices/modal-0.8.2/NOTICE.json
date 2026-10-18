@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "name": "modal",
+  "version": "0.8.2",
+  "license": "Apache-2.0",
+  "packageJsonSha256": "abec99438042078a11dceb67dddb0bb83b123841b23bd6f445a3fb56eb956d51",
+  "checkedDate": "2026-10-15",
+  "repository": "https://github.com/modal-labs/modal-client",
+  "tag": "js/v0.8.2",
+  "commit": "464b3ec94b79b2f02a270fb98b4ed85d9c85f962",
+  "licenseSource": "https://raw.githubusercontent.com/modal-labs/modal-client/464b3ec94b79b2f02a270fb98b4ed85d9c85f962/LICENSE",
+  "licenseSha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+  "packageSource": "https://raw.githubusercontent.com/modal-labs/modal-client/464b3ec94b79b2f02a270fb98b4ed85d9c85f962/js/package.json",
+  "sourcePackageSha256": "abec99438042078a11dceb67dddb0bb83b123841b23bd6f445a3fb56eb956d51",
+  "npmReportedGitHead": "c5a7e33906f4772f7c516f3cd7d7870081c80807",
+  "note": "The npm package omits LICENSE/NOTICE. The npm-reported gitHead is not publicly resolvable; official exact js/v0.8.2 tag resolves to this commit and its package.json is byte-identical to the installed locked package. The official release license is retained unchanged; no upstream NOTICE file was provided in the npm distribution or root release path. This JSON is distribution provenance, not a fabricated upstream NOTICE."
+}

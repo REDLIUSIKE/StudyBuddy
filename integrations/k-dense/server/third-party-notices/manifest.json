@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "checkedDate": "2026-10-15",
+  "packages": [
+    {
+      "name": "abstract-logging",
+      "version": "2.0.1",
+      "license": "MIT",
+      "packageJsonSha256": "33f6c3a8ec869b76fba4173cd688d1865ae74d746cc3f3b5d85abf9f40ab4038",
+      "files": [
+        {
+          "source": "third-party-notices/abstract-logging-2.0.1/LICENSE.txt",
+          "destination": "LICENSE.txt",
+          "size": 1113,
+          "sha256": "af128b943225bc9740716e077e7aedae2f1804bce7106c4b28021f2cc24a0ebf"
+        },
+        {
+          "source": "third-party-notices/abstract-logging-2.0.1/NOTICE.json",
+          "destination": "NOTICE.json",
+          "size": 1232,
+          "sha256": "c2ff0d6c9752cf1e2c7fd5b4b082c559674e6f317b9d378f169310d80e07d7b1"
+        },
+        {
+          "source": "node_modules/abstract-logging/Readme.md",
+          "destination": "Readme.md",
+          "size": 1070,
+          "sha256": "e1a86711fb5055c0e66901276b7d2c843554bf5f1dab218c069c8b9d17148e81"
+        }
+      ]
+    },
+    {
+      "name": "isarray",
+      "version": "1.0.0",
+      "license": "MIT",
+      "packageJsonSha256": "93165ce56e458216c18240cd961a522af5b18e51da06f55d88ac552234455d95",
+      "files": [
+        {
+          "source": "node_modules/isarray/README.md",
+          "destination": "README.md",
+          "size": 1890,
+          "sha256": "ff138e683771b187f3629c383db72ee7d632009010a36d08e18e8d2a34222ec7"
+        }
+      ]
+    },
+    {
+      "name": "modal",
+      "version": "0.8.2",
+      "license": "Apache-2.0",
+      "packageJsonSha256": "abec99438042078a11dceb67dddb0bb83b123841b23bd6f445a3fb56eb956d51",
+      "files": [
+        {
+          "source": "third-party-notices/modal-0.8.2/LICENSE",
+          "destination": "LICENSE",
+          "size": 10173,
+          "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9"
+        },
+        {
+          "source": "third-party-notices/modal-0.8.2/NOTICE.json",
+          "destination": "NOTICE.json",
+          "size": 1305,
+          "sha256": "45b286f976eef551a90fae338df0e0a10000f89a648fb0c8a88cd3b484f7040f"
+        }
+      ]
+    }
+  ]
+}

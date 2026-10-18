@@ -1,0 +1,39 @@
+/* The owning guest keeps the approved shell appearance through retained views. */
+html[data-studybuddy-embedded] .home {
+  background: var(--dsw-alias-bg-base, var(--el-bg-color));
+}
+
+html[data-studybuddy-embedded] .home .creativeBackground {
+  display: none;
+}
+
+html[data-studybuddy-embedded] .home .creationTitle {
+  font-weight: 700;
+}
+
+html[data-studybuddy-embedded] .home .pageContent .creationPanel .promptArea .promptCard {
+  border-color: var(--dsw-specific-aigc-input-border, var(--el-border-color));
+  box-shadow: none;
+}
+
+html[data-studybuddy-embedded] .home .pageContent .creationPanel .promptArea .promptCard:focus-within {
+  border-color: var(--el-color-primary-light-5);
+}
+
+html[data-studybuddy-embedded] .home .pageContent .creationPanel .promptArea .promptCard .el-card__footer {
+  background: var(--dsw-specific-aigc-input-footer-fill, var(--el-fill-color-extra-light));
+  border-color: var(--dsw-specific-aigc-border, var(--el-border-color-lighter));
+}
+
+html[data-studybuddy-embedded] .home .pageContent .projectList .sectionHeader {
+  border-color: var(--dsw-specific-aigc-border, var(--el-border-color-lighter));
+}
+
+html[data-studybuddy-embedded] .home .pageContent .projectList .sectionHeader h2 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+html[data-studybuddy-embedded] .home .projectCard {
+  border-color: var(--dsw-specific-aigc-border, var(--el-border-color));
+}

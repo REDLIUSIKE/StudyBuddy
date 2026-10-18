@@ -1,0 +1,88 @@
+/**
+ * Per-session model directory: the ONE state both selection entries share.
+ * The /model popup and composer seat combine one shared Host catalog with the
+ * Session's durable selection projection, then submit through the same
+ * selectModel call. A switch made in either entry updates this shared state.
+ */
+import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client';
+import type { ModelCatalogFailure, ModelProviderGroup, ModelSelection } from '@deepseek-ai/dsh-api-session-controller/types';
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client';
+import type { RemoteResult, TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol';
+import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store';
+import type { ModelCatalogDirectory } from './catalog.ts';
+/** Directory snapshot both entries render from. */
+export interface ModelDirectoryState {
+    /** Explicit default saving is independent of the current Session's selection. */
+    explicitDefault?: boolean;
+    /** Last saved default; null means no explicit default has been selected. */
+    savedDefault?: ModelSelection | null;
+    /** Saved selection, retained even when its provider or model leaves the catalog. */
+    current: ModelSelection | null;
+    /** Saved effort caption retained when the selected model is unavailable. */
+    retainedEffort?: string;
+    /** Whether the current selection is present in the available catalog; null while unresolved. */
+    routable: boolean | null;
+    /** Successfully loaded provider groups (last good load). */
+    groups: readonly ModelProviderGroup[];
+    /** Provider-local failures from the last load; usable groups stay usable. */
+    failures: readonly ModelCatalogFailure[];
+    /** Lifecycle of the in-flight operation. */
+    status: 'idle' | 'loading' | 'ready' | 'selecting' | 'error';
+    /** Selection submitted by the latest `select` until it settles; null otherwise. */
+    pending: ModelSelection | null;
+    /** Whole-request or selection failure text; null when none. */
+    error: string | null;
+}
+/** One session's shared directory controller; disposed with the session scope. */
+export declare class ModelDirectory {
+    private readonly sessions;
+    private readonly sessionId;
+    private readonly available;
+    private readonly catalog;
+    private readonly projected;
+    private readonly isBlank;
+    private readonly track?;
+    /** The shared snapshot both entries render from (uSES-safe store). */
+    readonly store: SnapshotStore<ModelDirectoryState>;
+    /** Latest selection operation wins; an older response never overwrites a newer one. */
+    private generation;
+    private disposed;
+    private readonly unsubscribeCatalog;
+    private readonly unsubscribeSelection;
+    /**
+     * @param sessions - the session wire face (captured from the plugin's root connection).
+     * @param sessionId - the owning session.
+     * @param available - whether this session may use Agent-bound model RPCs.
+     * @param catalog - Host-generation catalog shared by every Session.
+     * @param projected - durable model selection projected from Session history.
+     * @param isBlank - whether this Session has no first message yet.
+     * @param track - desktop-only callback after a successful user selection.
+     */
+    constructor(sessions: Pick<TypertClientRemote['session'], 'selectModel'> & Partial<Pick<TypertClientRemote['session'], 'saveDefaultModel'>>, sessionId: SessionId, available: () => boolean, catalog: ModelCatalogDirectory, projected: ObservableSnapshot<unknown>, isBlank: () => boolean, track?: TrackProductEvent | undefined);
+    /**
+     * Ensure the Host generation's shared available catalog is loaded.
+     * @returns the fresh directory value.
+     */
+    load(): Promise<ModelDirectoryState>;
+    /**
+     * Select the complete provider/model/reasoning selection. The durable
+     * projection frame updates the shared current; failures surface on the store
+     * and return with the operation so each entry can present its own failure.
+     * @param selection - provider, provider-owned model id, and optional adapter-owned effort.
+     * @returns the selection outcome, including the original Remote failure.
+     */
+    select(selection: ModelSelection): Promise<RemoteResult<void>>;
+    /** Save one explicit default without changing this Session's durable selection.
+     * @param selection - User-selected exact model and optional supported reasoning effort.
+     * @returns The save outcome, or undefined when this composition has no explicit-default action. */
+    saveDefault(selection: ModelSelection): Promise<RemoteResult<void> | undefined>;
+    /**
+     * Invalidate an in-flight selection response from the previous Host generation.
+     */
+    resetConnected(): void;
+    /** Scope teardown: late settlements lose write access to the store. */
+    dispose(): void;
+    private assertAvailable;
+    private syncInputs;
+}
+//# sourceMappingURL=directory.d.ts.map

@@ -1,0 +1,56 @@
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+/**
+ * The feedback dialog and its acknowledgement and failure toasts, rendered as one entry
+ * of `conversation.input.overlay` so each Session owns exactly one of each.
+ * The Modal and the Toast both portal to `document.body`; the overlay slot
+ * only supplies the per-session controller and the composer card the toast
+ * centers over.
+ * @module @deepseek-ai/dsh-client-ui-message-feedback/client/FeedbackDialog
+ */
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Button, IconWarningOutlineRegular, Modal, Toast, } from '@deepseek-ai/dsh-client-ui-primitives';
+import css from './FeedbackDialog.module.css';
+/**
+ * The chips in presentation order. A client bundle may not import a Host
+ * package's values, so the taxonomy is restated as a complete record of the
+ * `FeedbackCategory` union: a missing or foreign id is a compile error.
+ */
+const CATEGORY_CHIPS = {
+    'task-result': true,
+    'instruction-following': true,
+    'product-interaction': true,
+    'service-stability': true,
+    'resource-cost': true,
+    'security-privacy-permission': true,
+    'other': true,
+};
+const CATEGORIES = Object.keys(CATEGORY_CHIPS);
+/** Failure codes with their own copy; every other code reads the generic line. */
+const FAILURE_COPY = {
+    'version-conflict': 'error.conflict',
+    'note-too-large': 'error.noteTooLarge',
+};
+/**
+ * Render one Session's feedback dialog and toast.
+ * @param props - the dialog hook, the draft verbs, and the locale seat.
+ * @returns the modal while a target is open and either toast while it is showing.
+ */
+export function FeedbackDialog({ useDialog, edit, submit, dismiss, dismissFailure, dismissToast, t, }) {
+    const state = useDialog(s => s);
+    // The toast centers over the composer card this entry renders inside of.
+    const probeRef = useRef(null);
+    const [card, setCard] = useState(null);
+    useLayoutEffect(() => {
+        setCard(probeRef.current?.closest('[data-composer-card]') ?? null);
+    }, []);
+    const toast = state.toast;
+    const onToastDone = useCallback(() => { dismissToast(toast); }, [dismissToast, toast]);
+    // A toast retires with the entry that showed it: the Toast's own timer dies
+    // on unmount, and the Session's controller must not replay it on return.
+    useEffect(() => () => { dismissToast(toast); }, [dismissToast, toast]);
+    const failureCode = state.failure;
+    const failure = failureCode === null ? null : t(FAILURE_COPY[failureCode] ?? 'error.generic');
+    const onFailureDone = useCallback(() => { dismissFailure(); }, [dismissFailure]);
+    return (_jsxs(_Fragment, { children: [_jsx("span", { ref: probeRef, hidden: true }), toast > 0 && failure === null && (_jsx(Toast, { text: t('toast.recorded'), tone: "success", anchor: card, onDone: onToastDone }, toast)), failure !== null && (_jsx(Toast, { text: failure, icon: _jsx(IconWarningOutlineRegular, {}), anchor: card, holdMs: 6000, onDone: onFailureDone }, `failure-${failureCode}`)), _jsxs(Modal, { open: state.target !== null, title: t('dialog.title'), closeLabel: t('close'), onClose: dismiss, className: css.dialog, footer: (_jsx(Button, { variant: "primary", className: css.submit, disabled: state.submitting, onClick: () => { void submit(); }, children: state.submitting ? t('submitting') : t('submit') })), children: [_jsx("div", { className: css.categories, role: "group", "aria-label": t('dialog.categories'), children: CATEGORIES.map(category => (_jsx("button", { type: "button", className: state.category === category ? `${css.chip} ${css.chipActive}` : css.chip, "aria-pressed": state.category === category, disabled: state.submitting, onClick: () => { edit({ category: state.category === category ? null : category }); }, children: t(`category.${category}`) }, category))) }), _jsx("textarea", { className: css.detail, "aria-label": t('dialog.detail'), placeholder: t('dialog.hint'), value: state.text, readOnly: state.submitting, onChange: (event) => { edit({ text: event.target.value }); } })] })] }));
+}
+//# sourceMappingURL=FeedbackDialog.js.map

@@ -1,0 +1,3 @@
+.trigger { gap:6px; padding:0 10px; border:0; box-shadow:none; white-space:nowrap; -webkit-app-region:no-drag; }
+.label { color:var(--dsw-alias-label-secondary); font-size:12px; line-height:18px; }
+.amount { color:var(--dsw-alias-state-success-primary); font-size:13px; line-height:20px; font-weight:600; font-variant-numeric:tabular-nums; }

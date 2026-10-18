@@ -1,0 +1,107 @@
+/** Thin client helpers for the LaTeX editor's backend endpoints. */
+import { apiFetch } from "@/lib/projects";
+import { runtimeProfile } from "@/lib/runtime-profile";
+
+export async function readSandboxFile(
+  path: string,
+  projectId?: string,
+): Promise<string | null> {
+  try {
+    const res = await apiFetch(
+      `/sandbox/file?path=${encodeURIComponent(path)}`,
+      {},
+      projectId,
+    );
+    return res.ok ? await res.text() : null;
+  } catch {
+    return null;
+  }
+}
+
+export type SynctexBoxDto = { page: number; h: number; v: number; W: number; H: number };
+export type SynctexLocDto = { file: string | null; line: number; column: number };
+
+async function synctexRequest<T>(
+  params: URLSearchParams,
+  projectId?: string,
+): Promise<T | "unavailable" | null> {
+  try {
+    const res = await apiFetch(
+      `/sandbox/synctex?${params.toString()}`,
+      {},
+      projectId,
+    );
+    if (res.status === 424) return "unavailable";
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function fetchSynctexForward(
+  tex: string,
+  line: number,
+  pdf: string,
+  projectId?: string,
+): Promise<SynctexBoxDto | "unavailable" | null> {
+  return synctexRequest<SynctexBoxDto>(
+    new URLSearchParams({ dir: "forward", path: tex, line: String(line), col: "0", pdf }),
+    projectId,
+  );
+}
+
+export function fetchSynctexInverse(
+  pdf: string,
+  page: number,
+  x: number,
+  y: number,
+  projectId?: string,
+): Promise<SynctexLocDto | "unavailable" | null> {
+  return synctexRequest<SynctexLocDto>(
+    new URLSearchParams({
+      dir: "inverse", pdf, page: String(page), x: x.toFixed(2), y: y.toFixed(2),
+    }),
+    projectId,
+  );
+}
+
+export class LatexAssistError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export type LatexAssistResult = import("./assist-result").LatexAssistDecision & {
+  model?: string;
+  costUsd?: number;
+  nativeRunId?: string;
+  nativeSessionId?: string;
+  accounting?: "native-ledger";
+  billingMode?: string;
+  listPriceUsd?: number;
+};
+
+export async function postLatexAssist(
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+  projectId?: string,
+): Promise<LatexAssistResult> {
+  const res = await apiFetch(`/sandbox/latex-assist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(runtimeProfile() === "studybuddy" ? { ...body, model: undefined, operationId: crypto.randomUUID() } : body),
+    signal,
+  }, projectId);
+  if (!res.ok) {
+    let message = `AI assist failed (${res.status})`;
+    try {
+      const data = (await res.json()) as { message?: string; detail?: string };
+      message = data.message ?? data.detail ?? message;
+    } catch { /* non-JSON error body */ }
+    throw new LatexAssistError(res.status, message);
+  }
+  return (await res.json()) as LatexAssistResult;
+}

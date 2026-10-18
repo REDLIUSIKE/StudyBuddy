@@ -1,0 +1,5 @@
+.actions { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px 24px; font-size: 12px; }
+.actions button { border: 1px solid var(--dsw-alias-stroke-secondary, #d8dee2); border-radius: 6px; padding: 4px 10px; color: var(--dsw-alias-link-primary, #169647); background: transparent; cursor: pointer; }
+.actions button:hover { background: var(--dsw-alias-background-secondary, #f3f6f4); }
+.actions button:disabled { opacity: .6; cursor: default; }
+.actions span { color: var(--dsw-alias-label-secondary, #737981); }

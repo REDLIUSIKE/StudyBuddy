@@ -1,0 +1,75 @@
+[
+  {
+    "text": "你好，世界。",
+    "pronounce_text": "你好，世界。",
+    "time_begin": 0,
+    "time_end": 1130.657596371882,
+    "text_begin": 0,
+    "text_end": 6,
+    "pronounce_text_begin": 0,
+    "pronounce_text_end": 6,
+    "is_final_segment": true,
+    "timestamped_words": [
+      {
+        "word": "你",
+        "word_begin": 0,
+        "word_end": 1,
+        "pronounce_word": "你",
+        "pronounce_word_begin": 0,
+        "pronounce_word_end": 1,
+        "time_begin": 42.666666666666664,
+        "time_end": 213.33333333333331
+      },
+      {
+        "word": "好",
+        "word_begin": 1,
+        "word_end": 2,
+        "pronounce_word": "好",
+        "pronounce_word_begin": 1,
+        "pronounce_word_end": 2,
+        "time_begin": 213.33333333333331,
+        "time_end": 341.3333333333333
+      },
+      {
+        "word": "，",
+        "word_begin": 2,
+        "word_end": 3,
+        "pronounce_word": "，",
+        "pronounce_word_begin": 2,
+        "pronounce_word_end": 3,
+        "time_begin": 341.3333333333333,
+        "time_end": 384
+      },
+      {
+        "word": "世",
+        "word_begin": 3,
+        "word_end": 4,
+        "pronounce_word": "世",
+        "pronounce_word_begin": 3,
+        "pronounce_word_end": 4,
+        "time_begin": 384,
+        "time_end": 597.3333333333333
+      },
+      {
+        "word": "界",
+        "word_begin": 4,
+        "word_end": 5,
+        "pronounce_word": "界",
+        "pronounce_word_begin": 4,
+        "pronounce_word_end": 5,
+        "time_begin": 597.3333333333333,
+        "time_end": 725.3333333333333
+      },
+      {
+        "word": "。",
+        "word_begin": 5,
+        "word_end": 6,
+        "pronounce_word": "。",
+        "pronounce_word_begin": 5,
+        "pronounce_word_end": 6,
+        "time_begin": 725.3333333333333,
+        "time_end": 938.6666666666666
+      }
+    ]
+  }
+]

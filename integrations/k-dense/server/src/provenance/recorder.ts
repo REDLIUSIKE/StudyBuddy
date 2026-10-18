@@ -1,0 +1,497 @@
+/**
+ * Observational provenance recorder.
+ *
+ * Subscribes to the same Pi event stream the SSE mapper reads (see the
+ * `session.subscribe` call in api/sessions.ts) and turns each tool call into a
+ * durable step row binding that call to the sandbox files it actually read and
+ * wrote. Nothing here trusts the model's account of its own work.
+ *
+ * Attribution per tool class:
+ *
+ *   write/edit      the tool names its path and we hash the bytes afterward
+ *                   -> `observed`
+ *   bash, subagent  only a before/after scan can see what a script wrote
+ *                   -> `observed`, downgraded to `inferred` when the drain fell
+ *                      behind (see LAG below)
+ *   read            the tool names its path -> `observed` input edge
+ *   everything else recorded as a step with no file edges
+ *
+ * Opaque calls also get `inferred` INPUT edges for files their command line
+ * names that existed beforehand and were not written (see mentions.ts) — the
+ * script and the data a `python` invocation read, which the scan cannot see.
+ *
+ * ENVIRONMENT: the recorder captures the sandbox environment (interpreter
+ * versions, packages, lockfile hashes — see environment.ts) once at
+ * construction, stamps every step with its id, and re-captures after a step
+ * that plausibly changed it (`uv add`, a lockfile in the diff). The capture
+ * runs alongside the baseline walk, so it costs the run nothing in the normal
+ * case.
+ *
+ * LAG: the drain is async so a stat walk never blocks the event handler — a
+ * blocked handler stalls SSE for every tab in the project. The queue is FIFO and
+ * serialized, so scans stay ordered, but if two tool calls finish before the
+ * first one's scan runs, that scan sees both sets of changes. We detect exactly
+ * that condition (work still queued behind us) and mark the edges `inferred`
+ * rather than reporting a file against the wrong step as fact.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import { relativizeSandboxPaths } from "../agent/events.ts";
+import { isUserVisible, isWithin, safePath } from "../sandbox-fs.ts";
+import {
+  captureAndStoreEnvironment,
+  captureEnvironment as defaultCaptureEnvironment,
+  commandFromArgs,
+  environmentFingerprint,
+  environmentMayHaveChanged,
+  type EnvironmentCapture,
+} from "./environment.ts";
+import { mentionedPaths } from "./mentions.ts";
+import {
+  diffSnapshots,
+  scanSandbox,
+  type Snapshot,
+} from "./scanner.ts";
+import {
+  appendStep,
+  identify,
+  PROVENANCE_SCHEMA_VERSION,
+  type ArtifactChange,
+  type ArtifactRef,
+  type DegradeReason,
+  type EdgeConfidence,
+  type FileIdentity,
+  type ProvenanceStep,
+} from "./store.ts";
+
+/** Tools that cannot change the sandbox. Everything absent from this set is
+ *  treated as potentially mutating and gets a scan — an unknown MCP tool is far
+ *  likelier to write a file than to be worth skipping. */
+export const READ_ONLY_TOOLS = new Set([
+  "read",
+  "grep",
+  "find",
+  "ls",
+  "web_search",
+  "fetch_content",
+  "get_search_content",
+  "source_check",
+  // pi-subagents supervisor channel: replying to a child touches no files.
+  "subagent_supervisor",
+  "contact_supervisor",
+  "interview",
+  "notebook",
+  "scientific_result",
+  "notebook_search",
+  "list_pdf_annotations",
+  "modal_status",
+  "modal_instances",
+  // Pi's MCP support: tool_search only declares tools, and the resource tools
+  // read from servers (binary resources go to OS temp files, not the sandbox).
+  // `codemode` is deliberately absent: its scripts may call any tool.
+  "tool_search",
+  "list_mcp_resources",
+  "list_mcp_resource_templates",
+  "read_mcp_resource",
+]);
+
+/** Tools whose args name the single file they write. */
+const DECLARED_WRITE_TOOLS = new Set(["write", "edit", "multiedit", "str_replace"]);
+
+/** Args keys that carry a target path across Pi built-ins and MCP tools. */
+const PATH_KEYS = ["path", "file_path", "filePath", "file"] as const;
+
+const MAX_HASH_CACHE = 2_000;
+
+function declaredPath(args: unknown): string | null {
+  if (!args || typeof args !== "object") return null;
+  const record = args as Record<string, unknown>;
+  for (const key of PATH_KEYS) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return null;
+}
+
+export interface ProvenanceRecorderOptions {
+  projectId: string;
+  sessionId: string;
+  sandboxRoot: string;
+  runId?: string;
+  /** Read at step time so a mid-run model switch is attributed correctly. */
+  getModel: () => string | undefined;
+  /** Non-fatal recorder failures. Provenance must never break a run. */
+  onError?: (err: unknown) => void;
+  /** Environment probe; injectable so tests need not spawn interpreters.
+   *  `false` disables capture entirely. */
+  captureEnvironment?: EnvironmentCapture | false;
+  /** Native callers await a fresh bounded snapshot before dispatch. */
+  maxScanFiles?: number;
+  /** Native owner supplies lineage and durable deduplication without changing Pi rows. */
+  append?: (step: ProvenanceStep) => void;
+}
+
+interface ObservedStart {
+  toolName: string;
+  args: unknown;
+  startedAt: number;
+  before: Snapshot;
+  inputs: ArtifactRef[];
+  degraded?: DegradeReason;
+  environmentId?: string;
+  overlapping: boolean;
+  ready: Promise<void>;
+}
+
+export class ProvenanceRecorder {
+  private readonly opts: ProvenanceRecorderOptions;
+  private readonly starts = new Map<string, { startedAt: number; args: unknown }>();
+  private readonly hashCache = new Map<string, FileIdentity>();
+  private queue: Array<() => Promise<void>> = [];
+  private drainPromise: Promise<void> | null = null;
+  private snapshot: Snapshot = new Map();
+  private snapshotDegraded?: DegradeReason;
+  private readonly baselineReady: Promise<void>;
+  private environmentReady: Promise<void>;
+  private environmentId?: string;
+  /** Stat-level identity of the venv + lockfiles at the last capture. */
+  private environmentFingerprint = "";
+  private readonly observedStarts = new Map<string, ObservedStart>();
+
+  constructor(opts: ProvenanceRecorderOptions) {
+    this.opts = opts;
+    // Kick the baseline walk off immediately, before session.prompt(). It races
+    // the first model round-trip, which it virtually always wins; the drain
+    // awaits it regardless, so ordering is correct either way. A bash call that
+    // completes before this resolves can have its writes folded into the
+    // baseline and go unreported — documented in docs/provenance.md.
+    this.baselineReady = this.refreshSnapshot();
+    // Same overlap for the environment probe.
+    this.environmentReady = this.captureEnvironment();
+  }
+
+  private async refreshSnapshot(): Promise<void> {
+    const result = await scanSandbox(this.opts.sandboxRoot, this.opts.maxScanFiles);
+    this.snapshot = result.snapshot;
+    this.snapshotDegraded = result.degraded;
+  }
+
+  /** (Re)capture the environment. A failed probe keeps the previous id — an
+   *  environment we last saw is a better answer than none. */
+  private async captureEnvironment(): Promise<void> {
+    const capture = this.opts.captureEnvironment;
+    if (capture === false) return;
+    try {
+      // Fingerprint BEFORE the capture so a change landing mid-capture is
+      // noticed by the next comparison rather than missed.
+      this.environmentFingerprint = environmentFingerprint(this.opts.sandboxRoot);
+      const id = await captureAndStoreEnvironment(
+        this.opts.sandboxRoot,
+        this.opts.projectId,
+        capture ?? defaultCaptureEnvironment,
+      );
+      if (id) this.environmentId = id;
+    } catch (err) {
+      this.opts.onError?.(err);
+    }
+  }
+
+  /** Sync, cheap, and never throws: safe to call straight from Pi's event handler. */
+  observe(ev: AgentSessionEvent): void {
+    try {
+      if (ev.type === "tool_execution_start") {
+        this.starts.set(ev.toolCallId, {
+          startedAt: Date.now(),
+          args: relativizeSandboxPaths(ev.args, this.opts.sandboxRoot),
+        });
+        return;
+      }
+      if (ev.type !== "tool_execution_end") return;
+      const start = this.starts.get(ev.toolCallId);
+      this.starts.delete(ev.toolCallId);
+      const toolName = ev.toolName;
+      const isError = ev.isError === true;
+      const endedAt = Date.now();
+      this.schedule(() =>
+        this.record({
+          toolCallId: ev.toolCallId,
+          toolName,
+          isError,
+          args: start?.args,
+          startedAt: start?.startedAt,
+          timestamp: endedAt,
+        }),
+      );
+    } catch (err) {
+      this.opts.onError?.(err);
+    }
+  }
+
+  private schedule(job: () => Promise<void>): void {
+    this.queue.push(job);
+    if (!this.drainPromise) this.drainPromise = this.drain();
+  }
+
+  private async drain(): Promise<void> {
+    try {
+      while (this.queue.length > 0) {
+        const job = this.queue.shift()!;
+        try {
+          await job();
+        } catch (err) {
+          this.opts.onError?.(err);
+        }
+      }
+    } finally {
+      this.drainPromise = null;
+    }
+  }
+
+  /** Await the baseline walk and every queued step. Call once the run is
+   *  finished so the JSONL is complete before the terminal frames go out. */
+  async flush(): Promise<void> {
+    await this.baselineReady;
+    await this.environmentReady;
+    while (this.drainPromise) {
+      await this.drainPromise;
+      // A job scheduled while we awaited starts a fresh drain; keep going.
+    }
+  }
+
+  /** Prepare a real native execution; read hashes and environment refer to this awaited before-state. */
+  async beginObserved(input: { id: string; toolName: string; args: unknown; startedAt?: number }): Promise<void> {
+    if (this.observedStarts.has(input.id)) throw Error("PROVENANCE_CALL_ALREADY_STARTED");
+    const overlapping = this.observedStarts.size > 0;
+    if (overlapping) this.overlapObserved();
+    const start: ObservedStart = { toolName: input.toolName, args: relativizeSandboxPaths(input.args, this.opts.sandboxRoot),
+      startedAt: input.startedAt ?? Date.now(), before: new Map(), inputs: [], overlapping, ready: Promise.resolve() };
+    this.observedStarts.set(input.id, start);
+    start.ready = (async () => {
+      await this.baselineReady; await this.environmentReady;
+      if (this.opts.captureEnvironment !== false && environmentFingerprint(this.opts.sandboxRoot) !== this.environmentFingerprint) await this.captureEnvironment();
+      start.environmentId = this.environmentId;
+      const scan = await scanSandbox(this.opts.sandboxRoot, this.opts.maxScanFiles);
+      start.before = scan.snapshot; start.degraded = scan.degraded;
+      this.hashCache.clear(); // Awaited native identities are fresh even after a same-stat rewrite.
+      if (start.toolName === "read") {
+        const declared = declaredPath(start.args), ref = declared ? this.refFor(declared, "read", "observed") : null;
+        if (ref) start.inputs.push(ref);
+      } else if (!READ_ONLY_TOOLS.has(start.toolName)) {
+        const command = commandFromArgs(start.args);
+        if (command) for (const rel of mentionedPaths(command, candidate => start.before.has(candidate))) {
+          const ref = this.refFor(rel, "read", "inferred"); if (ref) start.inputs.push(ref);
+        }
+      }
+    })();
+    try { await start.ready; } catch (error) { this.observedStarts.delete(input.id); throw error; }
+  }
+
+  /** Shared project observers call this when another session may mutate the same sandbox. */
+  overlapObserved(): void { for (const start of this.observedStarts.values()) start.overlapping = true; }
+
+  /** Record after the body reaches quiescence; even a failed call can have actual file effects. */
+  async endObserved(input: { id: string; isError: boolean; timestamp?: number }): Promise<void> {
+    const start = this.observedStarts.get(input.id);
+    if (!start) throw Error("PROVENANCE_CALL_NOT_STARTED");
+    await start.ready;
+    try {
+      this.hashCache.clear();
+      await this.record({ toolCallId: input.id, toolName: start.toolName, isError: input.isError, args: start.args,
+        startedAt: start.startedAt, timestamp: input.timestamp ?? Date.now(), observed: start });
+    } finally { this.observedStarts.delete(input.id); }
+  }
+
+  /** Resolve a tool-declared relative path to an in-sandbox, user-visible file. */
+  private resolveDeclared(rel: string): { abs: string; rel: string } | null {
+    if (path.isAbsolute(rel)) return null; // relativization left it outside the sandbox
+    const abs = path.resolve(this.opts.sandboxRoot, rel);
+    if (!isWithin(this.opts.sandboxRoot, abs)) return null;
+    if (!isUserVisible(abs, this.opts.sandboxRoot)) return null;
+    try { safePath(rel, this.opts.sandboxRoot); } catch { return null; } // A declared path may be a junction outside the sandbox.
+    return { abs, rel };
+  }
+
+  /** identify() with a size+mtime-keyed cache, so re-reading one large input
+   *  across many steps does not re-hash it every time.
+   *
+   *  Validity is checked against a fresh stat, not against `this.snapshot`: the
+   *  snapshot only advances on scans and declared writes, so a file changed by
+   *  anything else (the sandbox file API, an external editor) would otherwise
+   *  keep returning its stale hash. One extra stat is nothing next to a hash. */
+  private identifyCached(abs: string, rel: string): FileIdentity | null {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(abs);
+    } catch {
+      return null;
+    }
+    if (!stat.isFile()) return null;
+    const cached = this.hashCache.get(rel);
+    if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) {
+      return cached;
+    }
+    const identity = identify(abs);
+    if (identity) {
+      if (this.hashCache.size >= MAX_HASH_CACHE) {
+        const oldest = this.hashCache.keys().next().value;
+        if (oldest !== undefined) this.hashCache.delete(oldest);
+      }
+      this.hashCache.set(rel, identity);
+    }
+    return identity;
+  }
+
+  /** Build an edge for a file that still exists. Deletions cannot go through
+   *  here — there is nothing left to stat — so callers construct those from the
+   *  pre-scan snapshot, which still holds the file's last known size/mtime. */
+  private refFor(
+    rel: string,
+    change: Exclude<ArtifactChange, "deleted">,
+    confidence: EdgeConfidence,
+  ): ArtifactRef | null {
+    const resolved = this.resolveDeclared(rel);
+    if (!resolved) return null;
+    const identity = this.identifyCached(resolved.abs, rel);
+    if (!identity) return null;
+    return {
+      path: rel,
+      ...(identity.sha256 ? { sha256: identity.sha256 } : {}),
+      size: identity.size,
+      mtimeMs: identity.mtimeMs,
+      change,
+      confidence,
+      ...(identity.hashSkipped ? { hashSkipped: identity.hashSkipped } : {}),
+    };
+  }
+
+  private async record(step: {
+    toolCallId: string;
+    toolName: string;
+    isError: boolean;
+    args: unknown;
+    startedAt?: number;
+    timestamp: number;
+    observed?: ObservedStart;
+  }): Promise<void> {
+    await this.baselineReady;
+    await this.environmentReady;
+
+    const inputs: ArtifactRef[] = step.observed ? [...step.observed.inputs] : [];
+    const outputs: ArtifactRef[] = [];
+    let degraded = step.observed?.degraded ?? this.snapshotDegraded;
+    // The environment the step ran IN — captured before it, not after: a step
+    // that installs a package belongs to the environment it started from.
+    const environmentId = step.observed ? step.observed.environmentId : this.environmentId;
+    let recaptureEnvironment = false;
+
+    if (step.toolName === "read") {
+      if (!step.observed) {
+        const declared = declaredPath(step.args);
+        const ref = declared ? this.refFor(declared, "read", "observed") : null;
+        if (ref) inputs.push(ref);
+      }
+    } else if (DECLARED_WRITE_TOOLS.has(step.toolName) && !step.isError) {
+      const declared = declaredPath(step.args);
+      if (declared) {
+        const existedBefore = (step.observed?.before ?? this.snapshot).has(declared);
+        const ref = this.refFor(declared, existedBefore ? "modified" : "created", step.observed?.overlapping ? "inferred" : "observed");
+        if (ref) {
+          outputs.push(ref);
+          // Fold the write into the baseline so the next scan does not
+          // re-attribute it to whichever tool happens to run afterward.
+          this.snapshot.set(ref.path, { size: ref.size, mtimeMs: ref.mtimeMs });
+        }
+      }
+    } else if (!READ_ONLY_TOOLS.has(step.toolName)) {
+      // Opaque tool: the sandbox itself is the only witness.
+      const before = step.observed?.before ?? this.snapshot;
+      const scan = await scanSandbox(this.opts.sandboxRoot, this.opts.maxScanFiles);
+      // Measured AFTER the scan, not before: the drain is the only consumer, so
+      // the queue can only have grown while we walked. Anything sitting in it
+      // is a step that finished before we looked, meaning this diff may contain
+      // its writes as well as ours.
+      const lagged = this.queue.length > 0 || step.observed?.overlapping === true;
+      if (scan.degraded || step.observed?.degraded) {
+        degraded = scan.degraded ?? step.observed?.degraded;
+        // An incomplete walk would report every unvisited file as deleted.
+        this.snapshotDegraded = degraded;
+      } else {
+        this.snapshotDegraded = undefined;
+        const diff = diffSnapshots(before, scan.snapshot);
+        this.snapshot = scan.snapshot;
+        const confidence: EdgeConfidence = lagged ? "inferred" : "observed";
+        // Inputs: files the command line names that existed before the call
+        // and which the call did not touch. Evidence rather than observation,
+        // so always `inferred` regardless of lag.
+        const command = commandFromArgs(step.args);
+        if (command) {
+          const written = new Set([...diff.created, ...diff.modified, ...diff.deleted]);
+          if (step.observed) {
+            for (let index = inputs.length - 1; index >= 0; index--) if (written.has(inputs[index].path)) inputs.splice(index, 1);
+          } else for (const rel of mentionedPaths(command, (p) => before.has(p) && !written.has(p))) {
+            const ref = this.refFor(rel, "read", "inferred"); if (ref) inputs.push(ref);
+          }
+        }
+        // The venv and uv.lock are hidden from the scan, so `uv run` syncing a
+        // fresh venv leaves no trace in `diff`; the fingerprint sees it.
+        recaptureEnvironment =
+          environmentMayHaveChanged(step.args, [
+            ...diff.created,
+            ...diff.modified,
+            ...diff.deleted,
+          ]) ||
+          (this.opts.captureEnvironment !== false &&
+            environmentFingerprint(this.opts.sandboxRoot) !== this.environmentFingerprint);
+        for (const rel of diff.created) {
+          const ref = this.refFor(rel, "created", confidence);
+          if (ref) outputs.push(ref);
+        }
+        for (const rel of diff.modified) {
+          const ref = this.refFor(rel, "modified", confidence);
+          if (ref) outputs.push(ref);
+        }
+        for (const rel of diff.deleted) {
+          // Build the deleted ref against `before`, which still has its stats.
+          const previous = before.get(rel);
+          const resolved = this.resolveDeclared(rel);
+          if (!resolved) continue;
+          outputs.push({
+            path: rel,
+            size: previous?.size ?? 0,
+            mtimeMs: previous?.mtimeMs ?? 0,
+            change: "deleted",
+            confidence,
+          });
+        }
+      }
+    }
+
+    const row: ProvenanceStep = {
+      schemaVersion: PROVENANCE_SCHEMA_VERSION,
+      id: step.toolCallId,
+      sessionId: this.opts.sessionId,
+      ...(this.opts.runId ? { runId: this.opts.runId } : {}),
+      ...(step.startedAt !== undefined ? { startedAt: step.startedAt } : {}),
+      timestamp: step.timestamp,
+      toolName: step.toolName,
+      ...(step.args !== undefined ? { args: step.args } : {}),
+      ...(step.isError ? { isError: true } : {}),
+      ...(this.opts.getModel() ? { model: this.opts.getModel() } : {}),
+      role: "agent",
+      inputs,
+      outputs,
+      ...(degraded ? { degraded } : {}),
+      ...(environmentId ? { environmentId } : {}),
+    };
+    if (this.opts.append) this.opts.append(row); else appendStep(row, this.opts.projectId);
+
+    if (recaptureEnvironment) {
+      // Inline in the drain, so the next step sees the new id. Serialized
+      // behind this step on purpose: the capture reads the venv the step just
+      // changed.
+      this.environmentReady = this.captureEnvironment();
+      await this.environmentReady;
+    }
+  }
+}

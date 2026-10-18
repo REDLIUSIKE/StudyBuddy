@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "package": "@earendil-works/pi-coding-agent",
+  "version": "1.0.0",
+  "purpose": "Pure file-format adapters; no Pi agent, session or model runtime",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 Mario Zechner",
+  "licenseSource": "https://raw.githubusercontent.com/earendil-works/pi/a13d35a742c6ef8462812a28fbe1d8c8b7431c32/LICENSE",
+  "tag": "v1.0.0",
+  "commit": "a13d35a742c6ef8462812a28fbe1d8c8b7431c32",
+  "checkedDate": "2026-10-15",
+  "licenseBytes": 1069,
+  "licenseSha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48",
+  "note": "Installed npm package declares MIT and author Mario Zechner but omits LICENSE. Exact original format source hashes and local adaptations are in pinned-sources.json; the official version-tagged license is retained as PI-LICENSE.txt."
+}

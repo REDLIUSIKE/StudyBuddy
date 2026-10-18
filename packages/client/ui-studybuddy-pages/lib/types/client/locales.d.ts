@@ -1,0 +1,31 @@
+export declare const zh: {
+    zhilian: string;
+    skills: string;
+    aigc: string;
+    research: string;
+    desktop: string;
+    signedOut: string;
+    failed: string;
+    retry: string;
+    loading: string;
+    nativeUnavailable: string;
+    nativeQuestion: string;
+    referenceFailed: string;
+    welcome: string;
+    welcomeTitle: string;
+    welcomeDescription: string;
+    welcomeHint: string;
+    welcomeFill: string;
+    welcomeCanvas: string;
+    welcomeCanvasDescription: string;
+    welcomeCanvasPrompt: string;
+    welcomeStory: string;
+    welcomeStoryDescription: string;
+    welcomeStoryPrompt: string;
+    welcomeImage: string;
+    welcomeImageDescription: string;
+    welcomeImagePrompt: string;
+};
+export type PageLocaleKey = keyof typeof zh;
+export declare const en: Record<PageLocaleKey, string>;
+//# sourceMappingURL=locales.d.ts.map

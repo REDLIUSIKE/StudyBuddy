@@ -1,0 +1,50 @@
+/* Embedded appearance follows the approved neutral StudyBuddy surface. */
+html[data-studybuddy-embedded] {
+  body {
+    --el-bg-color: var(--dsw-alias-bg-base, #fff);
+    --el-bg-color-overlay: var(--dsw-alias-bg-layer-1, #fff);
+    --el-fill-color-blank: var(--dsw-alias-bg-base, #fff);
+    --el-text-color-primary: var(--dsw-alias-label-primary, #102940);
+    --el-text-color-regular: var(--dsw-alias-label-secondary, #526b7c);
+    --el-border-color: var(--dsw-alias-border-l4, #dbe4e0);
+    font-family: var(--dsw-font-family, Inter, "Microsoft YaHei", system-ui, sans-serif);
+    font-size: 14px;
+  }
+  .home { background: var(--el-bg-color); }
+  .creationTitle { margin: 0; font-size: 20px; font-weight: 700; }
+  .home .pageHeader { height: 64px; padding: 0 28px; }
+  .home .pageContent { padding: 8px 28px 40px; }
+  .home .pageContent .creationPanel { max-width: none; margin: 14px 0 34px; }
+  .home .pageContent .creationPanel .promptArea .promptCard {
+    border-radius: 12px;
+    border-color: var(--dsw-specific-aigc-input-border, var(--el-border-color));
+    box-shadow: none;
+    &:focus-within { border-color: var(--el-color-primary-light-5); }
+  }
+  .home .promptCard .el-card__footer {
+    background: var(--dsw-specific-aigc-input-footer-fill, var(--el-fill-color-extra-light));
+    border-color: var(--dsw-specific-aigc-border, var(--el-border-color-lighter));
+  }
+  .home .sectionHeader { border-color: var(--dsw-specific-aigc-border, var(--el-border-color-lighter)); }
+  .home .sectionHeader h2 { font-size: 17px; font-weight: 700; }
+  .home .projectCard {
+    background: var(--el-bg-color);
+    border-color: var(--dsw-specific-aigc-border, var(--el-border-color));
+    border-radius: 12px;
+    box-shadow: none;
+  }
+  .home .promptCard .el-textarea__inner { font-family: inherit; font-size: 14px; }
+  .home .sendButton.is-circle { width: 32px; height: 32px; }
+  .canvasEntryHint { margin: 30px 0; color: var(--el-text-color-regular); font-size: 14px; }
+  .el-button { font-weight: 500; }
+  .el-button.is-round { border-radius: 8px; }
+  .sendButton.el-button--primary:not(:disabled) {
+    background: var(--dsw-alias-label-primary, #102940);
+    border-color: var(--dsw-alias-label-primary, #102940);
+    color: var(--dsw-alias-bg-base, #fff);
+  }
+  .projectCard:hover {
+    background-image: radial-gradient(ellipse at 50% 0%, rgb(215 250 230 / 68%), transparent 72%);
+    box-shadow: 0 10px 20px -12px rgb(16 41 64 / 24%), 0 0 26px 2px rgb(148 228 180 / 30%);
+  }
+}

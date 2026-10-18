@@ -1,0 +1,16 @@
+{
+  "finalResponse": "SDK projection only",
+  "sourceEvents": [
+    {
+      "type": "sandbox/workspace-roots",
+      "seq": 0,
+      "time": 0,
+      "data": {
+        "roots": [
+          "/projects/main",
+          "/projects/资料 空间"
+        ]
+      }
+    }
+  ]
+}

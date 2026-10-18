@@ -1,0 +1,661 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render as rtlRender, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { LabNotebookView } from "./lab-notebook-view";
+import type { NotebookEntry } from "@/lib/notebook";
+import { memoryHit, memorySearch } from "@/test/memory-fixture";
+
+vi.mock("@/lib/projects", () => ({
+  apiFetch: vi.fn(),
+  API_BASE: "http://x",
+  getActiveProjectId: () => "default",
+  useProjectScopeId: () => "default",
+  onProjectChange: () => () => {},
+}));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
+const { apiFetch } = await import("@/lib/projects");
+const { toast } = await import("sonner");
+const spy = apiFetch as unknown as ReturnType<typeof vi.fn>;
+
+// Radix menus/popovers reach for pointer-capture APIs jsdom doesn't implement.
+if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = () => false;
+if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = () => {};
+if (!Element.prototype.releasePointerCapture) Element.prototype.releasePointerCapture = () => {};
+
+/** Minimal Response-shaped payloads for the URL-routed apiFetch mock. */
+function okJson(data: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: () => null },
+    json: async () => data,
+    blob: async () => new Blob(["stub"], { type: "text/markdown" }),
+  };
+}
+function errJson(status: number, data: unknown = {}) {
+  return {
+    ok: false,
+    status,
+    headers: { get: () => null },
+    json: async () => data,
+    blob: async () => new Blob([]),
+  };
+}
+
+/**
+ * Route apiFetch by URL. The view fires several parallel fetches on mount
+ * (session notebook + annotations, and project notebook + sessions in project
+ * scope), so order-based mockResolvedValueOnce staging would be brittle.
+ */
+function routeFetch(custom?: (url: string, init?: RequestInit) => unknown) {
+  spy.mockImplementation((url: string, init?: RequestInit) => {
+    const c = custom?.(url, init);
+    if (c !== undefined) return Promise.resolve(c);
+    if (url.includes("/notebook/annotations")) {
+      return Promise.resolve(okJson({ version: 1, annotations: [] }));
+    }
+    if (url.endsWith("/notebook")) return Promise.resolve(okJson({ entries: [] }));
+    if (url === "/sessions") return Promise.resolve(okJson([]));
+    return Promise.resolve(okJson({}));
+  });
+}
+
+/** Calls that hit a per-session notebook (NOT project, annotations, or export). */
+const notebookCalls = () =>
+  spy.mock.calls.filter(
+    ([u]) =>
+      typeof u === "string" &&
+      (u as string).startsWith("/sessions/") &&
+      (u as string).endsWith("/notebook"),
+  );
+
+const e = (over: Partial<NotebookEntry>): NotebookEntry =>
+  ({ id: "tc_1", type: "hypothesis", title: "Six cell types", timestamp: 1, ...over });
+
+const baseProps = {
+  sessionId: "s1",
+  liveEntries: [] as NotebookEntry[],
+  streaming: false,
+  subagentCompletions: 0,
+  onOpenFile: () => {},
+};
+
+/** Most component tests exercise chat-scoped features; opt into that scope explicitly. */
+function render(ui: Parameters<typeof rtlRender>[0]) {
+  const result = rtlRender(ui);
+  fireEvent.click(screen.getByRole("button", { name: /this chat/i }));
+  return result;
+}
+
+describe("LabNotebookView", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    routeFetch();
+    try {
+      localStorage.clear(); // view-mode persistence must not leak across tests
+    } catch {
+      /* jsdom localStorage can be unavailable */
+    }
+  });
+
+  it("shows new live entries immediately in the default project view without cross-chat id collisions", async () => {
+    routeFetch((url) => url === "/projects/default/notebook" ? okJson({ entries: [e({ id: "same", title: "Other chat", sessionId: "other" })] }) : undefined);
+    const { rerender } = rtlRender(<LabNotebookView {...baseProps} />);
+    await waitFor(() => expect(screen.getByText("Other chat")).toBeInTheDocument());
+    rerender(<LabNotebookView {...baseProps} liveEntries={[e({ id: "same", title: "Live finding" })]} streaming />);
+    expect(screen.getByText("Live finding")).toBeInTheDocument();
+    expect(screen.getByText("Other chat")).toBeInTheDocument();
+  });
+
+  it("shows a refresh error and retry without silently switching scope", async () => {
+    let failed = true;
+    routeFetch((url) => url === "/projects/default/notebook" ? failed ? errJson(500) : okJson({ entries: [e({ title: "Recovered project" })] }) : undefined);
+    rtlRender(<LabNotebookView {...baseProps} sessionId={null} />);
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("refresh failed"));
+    expect(screen.getByRole("button", { name: "All chats" })).toHaveAttribute("aria-pressed", "true");
+    failed = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByText("Recovered project")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("summarizes conflicts from all entries even when the view is filtered to hypotheses", () => {
+    render(<LabNotebookView {...baseProps} liveEntries={[
+      e({ id: "h", title: "Claim" }),
+      e({ id: "a", type: "observation", title: "Positive", evidence: [{ entryId: "h", relation: "supports" }] }),
+      e({ id: "b", type: "observation", title: "Negative", evidence: [{ entryId: "h", relation: "challenges" }], artifactHealth: [{ path: "fig.png", status: "changed", checkedAt: 1 }] }),
+    ]} />);
+    fireEvent.click(screen.getByRole("button", { name: /hypothesis/i }));
+    expect(screen.getByText("Conflicting evidence")).toBeInTheDocument();
+    expect(screen.getByText("Needs review.")).toBeInTheDocument();
+    expect(screen.queryByTestId("nb-entry-a")).not.toBeInTheDocument();
+  });
+
+  it("memory navigation wins over an old chat focus token and uses the source session's id", async () => {
+    const original = Element.prototype.scrollIntoView;
+    const targets: string[] = [];
+    Element.prototype.scrollIntoView = function () { targets.push((this as HTMLElement).dataset.testid ?? ""); };
+    routeFetch((url) => {
+      if (url === "/sessions/s1/notebook") return okJson({ entries: [e({ id: "same", title: "Active source" })] });
+      if (url === "/projects/default/notebook") return okJson({ entries: [e({ id: "same", title: "Active source", sessionId: "s1" }), e({ id: "same", title: "Other source", sessionId: "s2" })] });
+      if (url.endsWith("/memory/search")) return okJson({ ...memorySearch, projectId: "default", hits: [{ ...memoryHit, source: { kind: "notebook", sessionId: "s2", entryId: "same" } }] });
+    });
+    try {
+      render(<LabNotebookView {...baseProps} focusEntry={{ id: "same", token: 1 }} />);
+      await waitFor(() => expect(screen.getByText("Active source")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Research memory" }));
+      fireEvent.change(screen.getByLabelText("Scientific memory query"), { target: { value: "Harmony" } });
+      fireEvent.click(screen.getByRole("button", { name: "Search memory" }));
+      await screen.findByText(memoryHit.title);
+      fireEvent.click(screen.getByRole("button", { name: "View in notebook" }));
+      await waitFor(() => expect(targets.at(-1)).toBe(`nb-entry-${JSON.stringify(["s2", "same"])}`));
+    } finally { Element.prototype.scrollIntoView = original; }
+  });
+
+  it("shows the empty state with no entries", () => {
+    render(<LabNotebookView {...baseProps} />);
+    expect(screen.getByText(/entries appear here/i)).toBeInTheDocument();
+  });
+
+  it("renders live entries with the right type", () => {
+    render(<LabNotebookView {...baseProps} liveEntries={[e({})]} streaming />);
+    expect(screen.getByText("Six cell types")).toBeInTheDocument();
+    expect(screen.getByTestId("nb-entry-tc_1").getAttribute("data-nb-type")).toBe("hypothesis");
+  });
+
+  it("fires onOpenFile when an artifact chip is clicked", () => {
+    const onOpenFile = vi.fn();
+    render(
+      <LabNotebookView
+        {...baseProps}
+        liveEntries={[e({ artifacts: ["figures/fig08.png"] })]}
+        onOpenFile={onOpenFile}
+      />,
+    );
+    fireEvent.click(screen.getByTitle("figures/fig08.png"));
+    expect(onOpenFile).toHaveBeenCalledWith("figures/fig08.png");
+  });
+
+  it("merges fetched entries from the backend on mount", async () => {
+    routeFetch((url) => {
+      if (url === "/sessions/s1/notebook") {
+        return okJson({ entries: [e({ id: "tc_persisted", title: "From disk" })] });
+      }
+    });
+    render(<LabNotebookView {...baseProps} />);
+    await waitFor(() => expect(screen.getByText("From disk")).toBeInTheDocument());
+  });
+
+  it("renders an entry body through the markdown renderer without throwing", () => {
+    render(
+      <LabNotebookView
+        {...baseProps}
+        liveEntries={[e({ id: "tc_body", body: "Some **markdown** body with `code`." })]}
+      />,
+    );
+    expect(screen.getByText(/Some/)).toBeInTheDocument();
+  });
+
+  it("offers 'open as file' for code entries with a script artifact", () => {
+    const onOpenFile = vi.fn();
+    render(
+      <LabNotebookView {...baseProps} onOpenFile={onOpenFile}
+        liveEntries={[{ id: "m1", type: "method", title: "Ran pipeline", timestamp: 1,
+          code: { source: "print(1)", lang: "python" }, artifacts: ["scripts/02_pipeline.py"] }]} />,
+    );
+    fireEvent.click(screen.getByText(/open as file/i));
+    expect(onOpenFile).toHaveBeenCalledWith("scripts/02_pipeline.py");
+  });
+
+  it("renders no chips and does not crash when artifacts is an empty array", () => {
+    render(
+      <LabNotebookView {...baseProps} liveEntries={[e({ id: "tc_empty_artifacts", artifacts: [] })]} />,
+    );
+    expect(screen.getByTestId("nb-entry-tc_empty_artifacts")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\.(png|jpg|csv|py)$/i })).not.toBeInTheDocument();
+  });
+
+  it("exports to PDF via a print-styled window when entries are present", () => {
+    const fakeWin = {
+      document: { write: vi.fn(), close: vi.fn(), readyState: "complete" },
+      focus: vi.fn(),
+      print: vi.fn(),
+    };
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(fakeWin as unknown as Window);
+    render(<LabNotebookView {...baseProps} liveEntries={[e({ artifacts: ["figures/fig08.png"] })]} />);
+    fireEvent.click(screen.getByRole("button", { name: /pdf/i }));
+    expect(openSpy).toHaveBeenCalled();
+    expect(fakeWin.document.write).toHaveBeenCalled();
+    expect(String(fakeWin.document.write.mock.calls[0][0])).toContain("Six cell types");
+    expect(fakeWin.document.close).toHaveBeenCalled();
+    // readyState "complete" → print fires synchronously, no load listener.
+    expect(fakeWin.focus).toHaveBeenCalled();
+    expect(fakeWin.print).toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it("toasts (and does not throw) when window.open is blocked", () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    render(<LabNotebookView {...baseProps} liveEntries={[e({})]} />);
+    expect(() => fireEvent.click(screen.getByRole("button", { name: /pdf/i }))).not.toThrow();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/pop-?up/i));
+    openSpy.mockRestore();
+  });
+
+  it("does not render a PDF button when there are no entries", () => {
+    render(<LabNotebookView {...baseProps} />);
+    expect(screen.queryByRole("button", { name: /pdf/i })).not.toBeInTheDocument();
+  });
+
+  it("groups entries into lanes by role (lead first, then subagents)", () => {
+    const entries: NotebookEntry[] = [
+      { id: "l1", role: "agent", type: "hypothesis", title: "Lead idea", timestamp: 1 },
+      { id: "scout:c1", role: "literature-scout", type: "method", title: "Searched refs", timestamp: 2 },
+      { id: "stats:c1", role: "stats-checker", type: "observation", title: "p<0.001", timestamp: 3 },
+    ];
+    render(<LabNotebookView {...baseProps} liveEntries={entries} />);
+    // Lane headers present; lead labeled and first.
+    const lead = screen.getByText(/Kady \(lead\)/i);
+    const scout = screen.getByText("literature-scout");
+    expect(lead).toBeInTheDocument();
+    expect(scout).toBeInTheDocument();
+    // Lead appears before the subagent lane in DOM order.
+    expect(lead.compareDocumentPosition(scout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Entries from each lane render.
+    expect(screen.getByText("Lead idea")).toBeInTheDocument();
+    expect(screen.getByText("p<0.001")).toBeInTheDocument();
+  });
+
+  it("re-fetches the notebook when subagentCompletions increments", async () => {
+    const { rerender } = render(<LabNotebookView {...baseProps} />);
+    await waitFor(() => expect(notebookCalls()).toHaveLength(1)); // initial (sessionId) fetch
+    rerender(<LabNotebookView {...baseProps} subagentCompletions={1} />);
+    await waitFor(() => expect(notebookCalls()).toHaveLength(2)); // completion re-fetch
+  });
+
+  it("ignores a stale subagent-triggered refetch that resolves after the session has changed", async () => {
+    // 1) Initial mount fetch for s1 resolves immediately with no entries. The
+    // subagent-triggered refetch (2) is held open, simulating a slow backend
+    // response that lands only after the tab has moved to another session.
+    let resolveStale: (value: unknown) => void = () => {};
+    const stalePromise = new Promise((resolve) => { resolveStale = resolve; });
+    let s1Fetches = 0;
+    routeFetch((url) => {
+      if (url === "/sessions/s1/notebook") {
+        s1Fetches++;
+        return s1Fetches === 1 ? okJson({ entries: [] }) : stalePromise;
+      }
+      if (url === "/sessions/s2/notebook") {
+        return okJson({ entries: [e({ id: "tc_s2", title: "From s2" })] });
+      }
+    });
+    const { rerender } = render(<LabNotebookView {...baseProps} />);
+    await waitFor(() => expect(s1Fetches).toBe(1));
+
+    // 2) subagentCompletions bumps while still on s1 — this fetch hangs.
+    rerender(<LabNotebookView {...baseProps} subagentCompletions={1} />);
+    await waitFor(() => expect(s1Fetches).toBe(2));
+
+    // 3) The session switches to s2 before the stale fetch above resolves.
+    rerender(<LabNotebookView {...baseProps} sessionId="s2" subagentCompletions={1} />);
+
+    // 4) Now resolve the stale s1 fetch. Its data must NOT land in s2's
+    // notebook, even though nothing cancelled it.
+    resolveStale(okJson({ entries: [e({ id: "tc_s1_stale", title: "From stale s1" })] }));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.queryByText("From stale s1")).not.toBeInTheDocument();
+
+    // 5) A later trigger fetches s2's own notebook, which renders fine.
+    rerender(<LabNotebookView {...baseProps} sessionId="s2" subagentCompletions={2} />);
+    await waitFor(() => expect(screen.getByText("From s2")).toBeInTheDocument());
+    expect(screen.queryByText("From stale s1")).not.toBeInTheDocument();
+  });
+
+  it("re-fetches the notebook when streaming transitions from true to false", async () => {
+    const { rerender } = render(<LabNotebookView {...baseProps} streaming />);
+    await waitFor(() => expect(notebookCalls()).toHaveLength(1)); // initial (sessionId) fetch
+    rerender(<LabNotebookView {...baseProps} streaming={false} />);
+    await waitFor(() => expect(notebookCalls()).toHaveLength(2)); // run-end re-fetch
+  });
+
+  it("downloads a Markdown export through the Export menu", async () => {
+    const user = userEvent.setup();
+    const createURL = vi.fn(() => "blob:x");
+    const revokeURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { value: createURL, configurable: true, writable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: revokeURL, configurable: true, writable: true });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+      render(<LabNotebookView {...baseProps} liveEntries={[e({})]} />);
+      await user.click(screen.getByRole("button", { name: /export/i }));
+      await user.click(await screen.findByRole("menuitem", { name: /markdown/i }));
+      await waitFor(() => expect(createURL).toHaveBeenCalled());
+      expect(
+        spy.mock.calls.some(
+          ([u]) => typeof u === "string" && (u as string).includes("/notebook/export?format=md"),
+        ),
+      ).toBe(true);
+      expect(clickSpy).toHaveBeenCalled();
+      expect(revokeURL).toHaveBeenCalledWith("blob:x");
+    } finally {
+      clickSpy.mockRestore();
+      Reflect.deleteProperty(URL, "createObjectURL");
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  });
+
+  // Regression: Export used to always hit /sessions/:id/notebook/export, so
+  // exporting from "All chats" silently downloaded only the active chat's
+  // slice of the notebook on screen — and did nothing at all when that chat
+  // had not been started yet.
+  it("exports the whole project when the scope is All chats", async () => {
+    const user = userEvent.setup();
+    const createURL = vi.fn(() => "blob:x");
+    Object.defineProperty(URL, "createObjectURL", { value: createURL, configurable: true, writable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true, writable: true });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    routeFetch((url) => {
+      if (url === "/projects/default/notebook") {
+        return okJson({ entries: [e({ id: "p1", title: "From another chat" })] });
+      }
+      return undefined;
+    });
+    try {
+      // No render() helper — stay in the default "All chats" scope.
+      rtlRender(<LabNotebookView {...baseProps} sessionId={null} />);
+      await waitFor(() => expect(screen.getByText("From another chat")).toBeInTheDocument());
+      await user.click(screen.getByRole("button", { name: /export/i }));
+      await user.click(await screen.findByRole("menuitem", { name: /markdown/i }));
+      await waitFor(() => expect(createURL).toHaveBeenCalled());
+      expect(
+        spy.mock.calls.some(
+          ([u]) => u === "/projects/default/notebook/export?format=md",
+        ),
+      ).toBe(true);
+      // The session route must not be used for a project-scope export.
+      expect(
+        spy.mock.calls.some(
+          ([u]) => typeof u === "string" && (u as string).startsWith("/sessions/") && (u as string).includes("/export"),
+        ),
+      ).toBe(false);
+    } finally {
+      clickSpy.mockRestore();
+      Reflect.deleteProperty(URL, "createObjectURL");
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  });
+
+  it("disables Export in chat scope until the chat has a session", async () => {
+    rtlRender(<LabNotebookView {...baseProps} sessionId={null} liveEntries={[e({})]} />);
+    fireEvent.click(screen.getByRole("button", { name: /this chat/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /export/i })).toBeDisabled(),
+    );
+  });
+
+  it("defaults to a research story grouped by scientific phase", () => {
+    render(
+      <LabNotebookView
+        {...baseProps}
+        liveEntries={[
+          e({ id: "m1", type: "method", title: "Run the assay" }),
+          e({ id: "o1", type: "observation", title: "Signal increased" }),
+          e({ id: "d1", type: "decision", title: "Advance the candidate" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Research story" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("Methods & experiments")).toBeInTheDocument();
+    expect(screen.getByText("Findings & evidence")).toBeInTheDocument();
+    expect(screen.getByText("Decisions & direction")).toBeInTheDocument();
+  });
+
+  it("filters entries by type via the header chips", () => {
+    render(
+      <LabNotebookView
+        {...baseProps}
+        liveEntries={[
+          e({ id: "h1", type: "hypothesis", title: "Six cell types" }),
+          e({ id: "o1", type: "observation", title: "Peak at 42" }),
+        ]}
+      />,
+    );
+    expect(screen.getByText("Peak at 42")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /hypothesis/i }));
+    expect(screen.getByText("Six cell types")).toBeInTheDocument();
+    expect(screen.queryByText("Peak at 42")).not.toBeInTheDocument();
+    // Toggle back off → both visible again.
+    fireEvent.click(screen.getByRole("button", { name: /hypothesis/i }));
+    expect(screen.getByText("Peak at 42")).toBeInTheDocument();
+  });
+
+  it("narrows entries with the search input", () => {
+    render(
+      <LabNotebookView
+        {...baseProps}
+        liveEntries={[
+          e({ id: "h1", title: "Six cell types" }),
+          e({ id: "o1", type: "observation", title: "Peak at 42" }),
+        ]}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Search entries"), { target: { value: "peak" } });
+    expect(screen.getByText("Peak at 42")).toBeInTheDocument();
+    expect(screen.queryByText("Six cell types")).not.toBeInTheDocument();
+  });
+
+  it("adds a user note through the composer, persisting it to the annotations sidecar", async () => {
+    render(<LabNotebookView {...baseProps} liveEntries={[e({ role: "agent" })]} />);
+    const input = screen.getByLabelText("Add a note");
+    fireEvent.change(input, { target: { value: "remember the batch effect" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    // Optimistic render: a "You" lane with the note body.
+    await waitFor(() => expect(screen.getByText("remember the batch effect")).toBeInTheDocument());
+    expect(screen.getByText("You")).toBeInTheDocument();
+    // Persisted with a PUT of the full annotations doc.
+    await waitFor(() =>
+      expect(
+        spy.mock.calls.some(
+          ([u, init]) =>
+            typeof u === "string" &&
+            (u as string).includes("/notebook/annotations") &&
+            (init as RequestInit | undefined)?.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("defaults to project scope, fetching all-chat entries with session dividers", async () => {
+    routeFetch((url) => {
+      if (url === "/projects/default/notebook") {
+        return okJson({
+          entries: [
+            e({ id: "p1", title: "Alpha entry", sessionId: "sA", timestamp: 1 }),
+            e({ id: "p2", title: "Beta entry", sessionId: "sB", timestamp: 2 }),
+          ],
+        });
+      }
+      if (url === "/sessions") {
+        return okJson([
+          { id: "sA", name: "Alpha chat" },
+          { id: "sB", firstMessage: "analyze the data" },
+        ]);
+      }
+    });
+    rtlRender(<LabNotebookView {...baseProps} />);
+    expect(screen.getByRole("button", { name: /all chats/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await waitFor(() => expect(screen.getByText("Alpha entry")).toBeInTheDocument());
+    expect(screen.getByText("Beta entry")).toBeInTheDocument();
+    // Session dividers labeled by name, falling back to the first message.
+    expect(screen.getByText("Alpha chat")).toBeInTheDocument();
+    expect(screen.getByText("analyze the data")).toBeInTheDocument();
+    expect(
+      spy.mock.calls.some(([u]) => u === "/projects/default/notebook"),
+    ).toBe(true);
+  });
+
+  it("relabels the project view when a chat appears after the first label lookup", async () => {
+    // The view usually mounts before the project's first chat exists; the
+    // divider then showed the raw session id for the rest of the visit.
+    let chats: unknown[] = [];
+    let entries: NotebookEntry[] = [];
+    routeFetch((url) => {
+      if (url === "/projects/default/notebook") return okJson({ entries });
+      if (url === "/sessions") return okJson(chats);
+    });
+    const { rerender } = rtlRender(<LabNotebookView {...baseProps} sessionId={null} />);
+    await waitFor(() => expect(spy.mock.calls.some(([u]) => u === "/sessions")).toBe(true));
+    chats = [{ id: "sNew", firstMessage: "fit the dose curve" }];
+    entries = [e({ id: "p1", title: "Fresh entry", sessionId: "sNew" })];
+    rerender(<LabNotebookView {...baseProps} sessionId="sNew" streaming />);
+    await waitFor(() => expect(screen.getByText("Fresh entry")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("fit the dose curve")).toBeInTheDocument());
+  });
+
+  it("counts a live link that names its own chat as same-chat evidence", () => {
+    render(<LabNotebookView {...baseProps} liveEntries={[
+      e({ id: "h", title: "Claim" }),
+      e({ id: "o", type: "observation", title: "Finding", evidence: [{ entryId: "h", sessionId: "s1", relation: "supports" }] }),
+    ]} />);
+    expect(screen.queryByText(/not in this view/)).not.toBeInTheDocument();
+    expect(screen.getByText("Supporting evidence")).toBeInTheDocument();
+  });
+
+  it("does not replay a handled focus jump when the scope or chat changes", async () => {
+    const orig = Element.prototype.scrollIntoView;
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      const focusEntry = { id: "tc_1", token: 7 };
+      const { rerender } = render(<LabNotebookView {...baseProps} liveEntries={[e({})]} focusEntry={focusEntry} />);
+      await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
+      scrollSpy.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "All chats" }));
+      fireEvent.click(screen.getByRole("button", { name: "This chat" }));
+      rerender(<LabNotebookView {...baseProps} sessionId="s2" liveEntries={[]} focusEntry={focusEntry} />);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(scrollSpy).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = orig;
+    }
+  });
+
+  it("saves the methods draft without interrupting notebook work and offers an explicit open action", async () => {
+    const user = userEvent.setup();
+    routeFetch((url) => {
+      if (url.includes("/notebook/methods-draft")) {
+        return okJson({ path: "methods_draft_x.md", costUsd: 0.01 });
+      }
+    });
+    const onOpenFile = vi.fn();
+    render(
+      <LabNotebookView
+        {...baseProps}
+        model="openai-codex/gpt-test"
+        liveEntries={[e({})]}
+        onOpenFile={onOpenFile}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /methods draft/i }));
+    await user.click(await screen.findByRole("button", { name: /generate/i }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(onOpenFile).not.toHaveBeenCalled();
+    const options = vi.mocked(toast.success).mock.calls.at(-1)?.[1];
+    expect(options?.action).toMatchObject({ label: "Open draft" });
+    const action = options?.action;
+    if (!action || typeof action !== "object" || !("onClick" in action)) throw new Error("Missing draft action");
+    act(() => Reflect.apply(action.onClick, undefined, []));
+    expect(onOpenFile).toHaveBeenCalledWith("methods_draft_x.md");
+    expect(
+      spy.mock.calls.some(
+        ([u, init]) =>
+          typeof u === "string" &&
+          (u as string).includes("/notebook/methods-draft") &&
+          (init as RequestInit | undefined)?.method === "POST",
+      ),
+    ).toBe(true);
+    const methodsCall = spy.mock.calls.find(
+      ([url]) =>
+        typeof url === "string" &&
+        (url as string).includes("/notebook/methods-draft"),
+    );
+    expect(JSON.parse(String((methodsCall?.[1] as RequestInit | undefined)?.body))).toEqual({
+      model: "openai-codex/gpt-test",
+    });
+  });
+
+  it("toasts an error when the methods draft hits the budget limit (402)", async () => {
+    const user = userEvent.setup();
+    routeFetch((url) => {
+      if (url.includes("/notebook/methods-draft")) {
+        return errJson(402, { detail: "budget-exceeded" });
+      }
+    });
+    render(<LabNotebookView {...baseProps} liveEntries={[e({})]} />);
+    await user.click(screen.getByRole("button", { name: /methods draft/i }));
+    await user.click(await screen.findByRole("button", { name: /generate/i }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+  });
+
+  it("scrolls a focusEntry target into view when it is present", async () => {
+    const orig = Element.prototype.scrollIntoView;
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      render(
+        <LabNotebookView
+          {...baseProps}
+          liveEntries={[e({})]}
+          focusEntry={{ id: "tc_1", token: 1 }}
+        />,
+      );
+      await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
+    } finally {
+      Element.prototype.scrollIntoView = orig;
+    }
+  });
+
+  it("toasts when a focusEntry target never appears", async () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <LabNotebookView
+          {...baseProps}
+          liveEntries={[e({})]}
+          focusEntry={{ id: "tc_missing", token: 1 }}
+        />,
+      );
+      await act(async () => {
+        vi.advanceTimersByTime(4100);
+      });
+      expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/isn't in this chat/i));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows agent badges in the chronological Timeline view", () => {
+    render(
+      <LabNotebookView
+        {...baseProps}
+        liveEntries={[e({ role: "agent" })]}
+      />,
+    );
+    // Single lane in by-agent view → no lane label…
+    expect(screen.queryByText("Kady (lead)")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /timeline/i }));
+    // …but the chrono view badges each entry with its author.
+    expect(screen.getByText("Kady (lead)")).toBeInTheDocument();
+  });
+});

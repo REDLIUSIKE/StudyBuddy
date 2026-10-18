@@ -1,0 +1,115 @@
+{
+  "checkedAt": "2026-10-11",
+  "toolMode": "built-in image_gen, existing-brand edits with transparent_background=true",
+  "useCase": "existing StudyBuddy logo and mascot adaptation",
+  "wordmark": {
+    "path": "brand/derived/studybuddy-desktop-sidebar-wordmark-transparent-v4.png",
+    "finalPrompt": "Clean up and adapt the EXACT EXISTING StudyBuddy wordmark shown in the reference. Preserve the spelling StudyBuddy, rounded dark letter shapes, existing green B-shaped 硅宝 as the ONE AND ONLY B within the word Buddy, its same eyes, eyebrows, smile, two leaves and small yellow accents. Do not add any standalone mascot at the left; only the complete wordmark. The rough edges, green fringe and speckled pixels in the reference are defects to remove, not a texture to reproduce. Rebuild all silhouettes as continuous immaculate vector-like curves with smooth antialiased transparent alpha edges. For legibility at 160 x 36 px, make the dark letters a uniform flat dark charcoal #202830 with NO grain, glossy bevel, rough shading, broken ink, embossing or noisy high-frequency highlights. Preserve the familiar rounded typography and letter layout. Keep the mascot face and recognizable B silhouette, using clean simple green areas and at most two broad soft highlights; remove tiny surface details and rough pixel fringes. Simplify shading, NOT character identity or logo geometry. Exact StudyBuddy word with all y descenders and full sprout intact, no extra text. Use a tightly fitted horizontal canvas, visible art approximately 4.5 times wider than tall, very small even transparent margins. True transparent background outside the artwork and inside the B opening. No background, backplate, border, outline, glow, external shadow, floor, watermark, new symbols or duplicate B. A faithful smooth small-size version of this existing brand.",
+    "copies": [],
+    "constraints": [
+      "existing StudyBuddy wordmark identity",
+      "one B mascot in expanded sidebar",
+      "smooth small-size contours",
+      "transparent without backplate"
+    ],
+    "preparation": {
+      "checkedAt": "2026-10-10T20:23:04.535Z",
+      "source": "brand/derived/studybuddy-desktop-sidebar-wordmark-transparent-v4.png",
+      "sourceSize": [
+        1978,
+        795
+      ],
+      "trimmedSize": [
+        1870,
+        461
+      ],
+      "preparation": "Trim near-transparent padding using sharp threshold 10, lineArt true, margin 4; fit without artwork clipping; Lanczos3 downscale with transparent 1px logical margin",
+      "variants": [
+        {
+          "path": "brand/derived/sidebar-wordmark-v4-1x.png",
+          "width": 160,
+          "height": 36,
+          "copies": [
+            "apps/web/public/brand/sidebar-v4-1x.png"
+          ]
+        },
+        {
+          "path": "brand/derived/sidebar-wordmark-v4-2x.png",
+          "width": 320,
+          "height": 72,
+          "copies": [
+            "apps/web/public/brand/sidebar-v4-2x.png",
+            "apps/desktop/renderer/assets/studybuddy-wordmark-v4-1x.png"
+          ]
+        },
+        {
+          "path": "brand/derived/sidebar-wordmark-v4-3x.png",
+          "width": 480,
+          "height": 108,
+          "copies": [
+            "apps/web/public/brand/sidebar-v4-3x.png"
+          ]
+        },
+        {
+          "path": "brand/derived/sidebar-wordmark-v4-4x.png",
+          "width": 640,
+          "height": 144,
+          "copies": [
+            "apps/desktop/renderer/assets/studybuddy-wordmark-v4-2x.png"
+          ]
+        }
+      ]
+    },
+    "variants": [
+      {
+        "path": "brand/derived/sidebar-wordmark-v4-1x.png",
+        "width": 160,
+        "height": 36,
+        "copies": [
+          "apps/web/public/brand/sidebar-v4-1x.png"
+        ]
+      },
+      {
+        "path": "brand/derived/sidebar-wordmark-v4-2x.png",
+        "width": 320,
+        "height": 72,
+        "copies": [
+          "apps/web/public/brand/sidebar-v4-2x.png",
+          "apps/desktop/renderer/assets/studybuddy-wordmark-v4-1x.png"
+        ]
+      },
+      {
+        "path": "brand/derived/sidebar-wordmark-v4-3x.png",
+        "width": 480,
+        "height": 108,
+        "copies": [
+          "apps/web/public/brand/sidebar-v4-3x.png"
+        ]
+      },
+      {
+        "path": "brand/derived/sidebar-wordmark-v4-4x.png",
+        "width": 640,
+        "height": 144,
+        "copies": [
+          "apps/desktop/renderer/assets/studybuddy-wordmark-v4-2x.png"
+        ]
+      }
+    ]
+  },
+  "appIcon": {
+    "path": "brand/derived/studybuddy-app-icon-transparent-v2.png",
+    "finalPrompt": "Edit this icon: REMOVE the entire white/off-white rounded-square backplate and every background pixel, fringe, rough speckle and border. Keep ONLY the green 硅宝 character exactly as shown, including eyes, eyebrows, smile, two-leaf sprout and the B-shaped body. The oval opening in the bottom of the B must also be fully transparent. True transparent alpha background outside the character and inside that oval opening. Clean smooth antialiased contour, no white halo, no framing shape, no badge, no outline, no shadow or ground plane. Preserve all character details and colors. Fit the complete character into a square app-icon canvas with small even transparent margins so it is legible at 32 px. This is background removal and app-icon fit, not a character redesign.",
+    "copies": [
+      "apps/desktop/resources/icon-windows.png",
+      "apps/desktop/resources/icon.png",
+      "apps/desktop/resources/icon-macos.png",
+      "apps/web/public/favicon.png"
+    ],
+    "constraints": [
+      "existing green 硅宝 mascot",
+      "no border",
+      "no backplate",
+      "transparent background and B opening"
+    ]
+  }
+}

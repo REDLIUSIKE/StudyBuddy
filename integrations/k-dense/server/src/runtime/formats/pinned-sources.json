@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "reviewedDate": "2026-10-15",
+  "license": "MIT",
+  "sources": [
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "core/skills.js",
+      "sha256": "3b7cc3997c630553eb88931de978e0db623ce51fbf7356e0ab922183885e208c",
+      "adapter": "skill-discovery.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "core/source-info.js",
+      "sha256": "67562eea112e99f4a7880913143730bd90e3655381c0f353e3dd18c5e9f1ef07",
+      "adapter": "source-info.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "utils/frontmatter.js",
+      "sha256": "3e1a0e99ecc419748d87202a342dd315160764cf8588551cefcf780208165da5",
+      "adapter": "frontmatter.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "extensions/mcp/config.js",
+      "sha256": "e6167bf9b062134aadb2dc85f10a57f801be6bfc2e2b4a6b8a9b01d4a345d7b1",
+      "adapter": "mcp-config.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "core/mcp-servers.js",
+      "sha256": "73a1e9023cb9a39ab72e00911cdd8ab0f7fde15fe714291a9184f316ad2b3a76",
+      "adapter": "mcp-servers.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "core/resolve-config-value.js",
+      "sha256": "01fdb1673990635bb419c7418eefa298b6a1c6fbb3c6193d3b05a4902e51992d",
+      "adapter": "resolve-config-value.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "utils/shell.js",
+      "sha256": "c8378f2b0566e35f90dfbb622a2214acf5cf45d15107c44b260cad897b539f72",
+      "adapter": "shell.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "core/trust-manager.js",
+      "sha256": "ce8644574983b5f8a04059545305b63463557cdf8d09049c35590cb937a70c76",
+      "adapter": "trust-manager.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "utils/paths.js",
+      "sha256": "d5d48c2b2b2442c7e72aee6e98a79d828a52dce9526b152288186834c1dcf4a5",
+      "adapter": "paths.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "utils/child-process.js",
+      "sha256": "cfc7b3361e42b61ee75aecc2b436ff7462f7e4431b4b646da7166f3c5706c9b8",
+      "adapter": "child-process.js"
+    },
+    {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.0.0",
+      "file": "utils/text.js",
+      "sha256": "e5520be5740ddb7d67ebd09ef33ea2aee2e360925593ad3a7842b6534304a0f3",
+      "adapter": "text.js"
+    }
+  ]
+}

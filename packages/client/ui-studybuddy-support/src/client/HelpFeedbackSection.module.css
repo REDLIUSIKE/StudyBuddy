@@ -1,0 +1,20 @@
+.section { display: flex; flex-direction: column; gap: 16px; padding: 8px 0 24px; min-width: 0; color: var(--dsw-alias-label-primary); }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.header h2 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+.header p, .muted { color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 1.6; margin: 0; }
+.tabs, .range, .reference { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.range { font-size: 13px; justify-content: space-between; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+.form label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.form textarea, .range select { box-sizing: border-box; background: var(--dsw-alias-bg-layer-1); color: inherit; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); padding: 10px 12px; font: inherit; }
+.form textarea { resize: vertical; min-height: 100px; }
+.preview, .notice { padding: 12px 14px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-2); font-size: 13px; line-height: 1.6; }
+.preview p, .notice p { margin: 0 0 6px; }
+.notice small { color: var(--dsw-alias-label-tertiary); }
+.sources { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 8px; color: var(--dsw-alias-label-tertiary); }
+.file { display: inline-block; padding: 6px 10px; margin: 6px 6px 0 0; background: var(--dsw-alias-bg-layer-2); border-radius: var(--dsw-radius-sm); font-size: 12px; }
+.reference { justify-content: space-between; padding: 10px 12px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); }
+.reference code { user-select: text; }
+.customerService { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; padding-top: 16px; border-top: 0.5px solid var(--dsw-alias-border-l3); font-size: 13px; }
+.customerServiceQq { font-weight: 500; font-variant-numeric: tabular-nums; user-select: text; }
+@media (max-width: 640px) { .header { flex-direction: column; } .sources { grid-template-columns: 1fr; } }

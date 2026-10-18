@@ -1,0 +1,71 @@
+export declare const TOOL_CONNECTION_TOOL_IDS: readonly ["codex", "claude_code"];
+export declare const TOOL_CONNECTION_STATES: readonly ["available", "connected", "revocation_pending", "conflict", "unavailable"];
+export declare const TOOL_CONNECTION_PERMISSION_STATES: readonly ["eligible", "funding_required", "membership_reconnect_required", "unavailable"];
+export declare const TOOL_CONNECTION_MAX_AUTHORIZED_MODELS = 64;
+export type ToolConnectionToolId = (typeof TOOL_CONNECTION_TOOL_IDS)[number];
+export type ToolConnectionState = (typeof TOOL_CONNECTION_STATES)[number];
+export type ToolConnectionPermissionState = (typeof TOOL_CONNECTION_PERMISSION_STATES)[number];
+export type ToolConnectionProviderId = "deepseek" | "kimi";
+export type ToolConnectionAuthorizedModel = Readonly<{
+    modelId: string;
+    providerId: ToolConnectionProviderId;
+}>;
+export type ToolConnectionAuthorityView = Readonly<{
+    toolId: ToolConnectionToolId;
+    state: ToolConnectionState;
+    permissionState: ToolConnectionPermissionState;
+    accountOwner: string;
+    deviceId: string;
+    fundingSource: "platform";
+    authorizedModelIds: readonly string[];
+    authorizedModels: readonly ToolConnectionAuthorizedModel[] | null;
+    bindingRevision: string | null;
+    authorityHandle: string | null;
+    credentialRevision: number | null;
+    receiptRevision: number | null;
+    lastVerifiedAt: string | null;
+}>;
+export type NativeToolConnectionView = Readonly<{
+    toolId: ToolConnectionToolId;
+    state: ToolConnectionState;
+    permissionState: ToolConnectionPermissionState;
+    savedDefaultModelId: string | null;
+    authorizedModelIds: readonly string[] | null;
+    fundingSource: "platform" | null;
+    activeBindingRevision: string | null;
+    selectionRevision: number | null;
+    lastVerifiedAt: string | null;
+}>;
+export type ToolConnectionBody = Readonly<{
+    modelId: string;
+}>;
+export type NativeToolMaterialRequest = Readonly<{
+    audience: "studybuddy-native-v1";
+    selectedModelId: string;
+    materialNonce: string;
+    receiptRevision: number;
+}>;
+export type NativeToolMaterial = Readonly<{
+    connectionId: string;
+    accountOwner: string;
+    deviceId: string;
+    toolId: ToolConnectionToolId;
+    fundingSource: "platform";
+    selectedProviderId: "deepseek" | "kimi";
+    gatewayOrigin: string;
+    protocol: "openai_responses" | "anthropic_messages";
+    selectedModelId: string;
+    authorizedModelIds: readonly string[];
+    apiKey: string;
+    authorityHandle: string;
+    pendingBindingRevision: string;
+    credentialRevision: number;
+    receiptRevision: number;
+    pendingExpiresAt: string;
+}>;
+export declare function parseToolConnectionToolId(value: unknown): ToolConnectionToolId;
+export declare function parseToolConnectionBody(value: unknown): ToolConnectionBody;
+export declare function parseToolConnectionAuthorityView(value: unknown): ToolConnectionAuthorityView;
+export declare function parseNativeToolConnectionView(value: unknown): NativeToolConnectionView;
+export declare function parseNativeToolMaterialRequest(value: unknown): NativeToolMaterialRequest;
+export declare function parseNativeToolMaterial(value: unknown): NativeToolMaterial;
